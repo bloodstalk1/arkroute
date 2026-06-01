@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	"bat.dev/arkrouter/internal/adapter"
+	anthropicadapter "bat.dev/arkrouter/internal/adapter/anthropic"
+	geminiadapter "bat.dev/arkrouter/internal/adapter/gemini"
 	openaiadapter "bat.dev/arkrouter/internal/adapter/openai"
 	"bat.dev/arkrouter/internal/protocol"
 	aproto "bat.dev/arkrouter/internal/protocol/anthropic"
@@ -40,8 +43,8 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	if anthropicReq.Stream {
 		target := targets[0]
-		adapter := openaiadapter.Adapter{}
-		upstreamReq, err := adapter.BuildRequest(normalized, target.Provider, target.Model)
+		pa := selectAdapter(target.Provider.Type)
+		upstreamReq, err := pa.BuildRequest(normalized, target.Provider, target.Model)
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
 			return
@@ -79,7 +82,7 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) callTarget(r *http.Request, req protocol.Request, target router.Target) (protocol.Response, int, error) {
-	adapter := openaiadapter.Adapter{}
+	adapter := selectAdapter(target.Provider.Type)
 	upstreamReq, err := adapter.BuildRequest(req, target.Provider, target.Model)
 	if err != nil {
 		return protocol.Response{}, 0, err
@@ -196,5 +199,16 @@ func mapNormalizedResponse(resp protocol.Response, model string) map[string]any 
 			"input_tokens":  resp.Usage.InputTokens,
 			"output_tokens": resp.Usage.OutputTokens,
 		},
+	}
+}
+
+func selectAdapter(providerType string) adapter.ProviderAdapter {
+	switch providerType {
+	case "gemini":
+		return geminiadapter.Adapter{}
+	case "anthropic":
+		return anthropicadapter.Adapter{}
+	default:
+		return openaiadapter.Adapter{}
 	}
 }
