@@ -32,15 +32,10 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "created %s\n", path)
 		return 0
 	case "validate":
-		cfg, err := config.LoadFile(flagValue(args[2:], "--config"))
-		if err == nil {
-			err = cfg.Validate()
-		}
-		if err != nil {
+		if err := app.ValidateConfig(flagValue(args[2:], "--config"), stdout); err != nil {
 			fmt.Fprintf(stderr, "validate failed: %v\n", err)
 			return 1
 		}
-		fmt.Fprintln(stdout, "config ok")
 		return 0
 	case "activate":
 		if len(args) >= 3 && args[2] == "claude" {
