@@ -31,3 +31,10 @@ func TestBuildRequest(t *testing.T) {
 		t.Fatalf("body = %s", out.Body)
 	}
 }
+
+func TestGeminiAdapterDoesNotAdvertiseUnimplementedStreamMapper(t *testing.T) {
+	adapter := Adapter{}
+	if _, ok := adapter.NewStreamMapper(); ok {
+		t.Fatal("Gemini adapter should not advertise streaming until its parser maps deltas")
+	}
+}

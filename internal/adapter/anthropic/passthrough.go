@@ -8,6 +8,7 @@ import (
 
 	"bat.dev/arkrouter/internal/adapter"
 	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkrouter/internal/failure"
 	"bat.dev/arkrouter/internal/protocol"
 )
 
@@ -100,4 +101,12 @@ func mapTools(tools []protocol.Tool) []map[string]any {
 		out = append(out, map[string]any{"name": tool.Name, "description": tool.Description, "input_schema": tool.InputSchema})
 	}
 	return out
+}
+
+func (a Adapter) NewStreamMapper() (adapter.StreamMapper, bool) {
+	return nil, false
+}
+
+func (a Adapter) ClassifyError(status int, body []byte) failure.ErrorClass {
+	return failure.ClassifyStatus(status)
 }

@@ -109,6 +109,31 @@ func TestStreamMapperDone(t *testing.T) {
 	}
 }
 
+func TestOpenAIAdapterSupportsStreamMapper(t *testing.T) {
+	adapter := Adapter{}
+	mapper, ok := adapter.NewStreamMapper()
+	if !ok {
+		t.Fatal("OpenAI adapter should support stream mapper")
+	}
+	events, err := mapper.MapLine([]byte("data: [DONE]"))
+	if err != nil {
+		t.Fatalf("MapLine() error = %v", err)
+	}
+	if len(events) != 1 || events[0].Type != "message_stop" {
+		t.Fatalf("events = %+v", events)
+	}
+}
+
+func TestOpenAIClassifyError(t *testing.T) {
+	adapter := Adapter{}
+	if got := adapter.ClassifyError(429, nil); got != "upstream_rate_limit" {
+		t.Fatalf("ClassifyError(429) = %s", got)
+	}
+	if got := adapter.ClassifyError(401, nil); got != "upstream_auth" {
+		t.Fatalf("ClassifyError(401) = %s", got)
+	}
+}
+
 func TestBuildRequestMapsToolResults(t *testing.T) {
 	adapter := Adapter{}
 	req := protocol.Request{

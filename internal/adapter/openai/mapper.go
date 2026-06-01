@@ -6,6 +6,7 @@ import (
 
 	"bat.dev/arkrouter/internal/adapter"
 	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkrouter/internal/failure"
 	"bat.dev/arkrouter/internal/protocol"
 	oai "bat.dev/arkrouter/internal/protocol/openai"
 )
@@ -79,4 +80,12 @@ func mapTools(tools []protocol.Tool) []oai.Tool {
 		out = append(out, oai.Tool{Type: "function", Function: oai.FunctionDef{Name: tool.Name, Description: tool.Description, Parameters: tool.InputSchema}})
 	}
 	return out
+}
+
+func (a Adapter) NewStreamMapper() (adapter.StreamMapper, bool) {
+	return NewStreamMapper(), true
+}
+
+func (a Adapter) ClassifyError(status int, body []byte) failure.ErrorClass {
+	return failure.ClassifyStatus(status)
 }

@@ -26,3 +26,10 @@ func TestBuildRequest(t *testing.T) {
 		t.Fatalf("body = %s", out.Body)
 	}
 }
+
+func TestAnthropicAdapterDoesNotAdvertiseUnimplementedStreamMapper(t *testing.T) {
+	adapter := Adapter{}
+	if _, ok := adapter.NewStreamMapper(); ok {
+		t.Fatal("Anthropic adapter should not advertise streaming until its parser maps deltas")
+	}
+}

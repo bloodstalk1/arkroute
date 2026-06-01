@@ -69,6 +69,27 @@ func (r *Router) resolveRoute(route config.RouteConfig, req Requirements) ([]Tar
 	return targets, nil
 }
 
+type RoutePlan struct {
+	Alias        string
+	Strategy     string
+	Requirements Requirements
+	Targets      []Target
+}
+
+func (r *Router) Plan(alias string, req Requirements) (RoutePlan, error) {
+	targets, err := r.Resolve(alias, req)
+	if err != nil {
+		return RoutePlan{}, err
+	}
+	strategy := "priority"
+	resolvedAlias := alias
+	if len(targets) > 0 && targets[0].Route.Alias != "" {
+		strategy = targets[0].Route.Strategy
+		resolvedAlias = targets[0].Route.Alias
+	}
+	return RoutePlan{Alias: resolvedAlias, Strategy: strategy, Requirements: req, Targets: targets}, nil
+}
+
 func supports(cap config.Capabilities, req Requirements) bool {
 	if req.Streaming && !cap.Streaming {
 		return false
