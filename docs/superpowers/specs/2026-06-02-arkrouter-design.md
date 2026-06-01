@@ -195,7 +195,15 @@ models:
     exposed_alias: sonnet
     claude_discovery_alias: claude-sonnet-4-20250514
     display_name: Claude Sonnet via OpenRouter
-    supports_streaming: true
+    capabilities:
+      streaming: true
+      tools: true
+      tool_results: true
+      vision: false
+      system_messages: true
+      prompt_cache: false
+      context_window: 200000
+      max_output_tokens: 8192
     enabled: true
 
   - id: gemini-pro
@@ -204,7 +212,15 @@ models:
     exposed_alias: gemini-pro
     claude_discovery_alias: claude-gemini-pro
     display_name: Gemini Pro
-    supports_streaming: true
+    capabilities:
+      streaming: true
+      tools: true
+      tool_results: true
+      vision: false
+      system_messages: true
+      prompt_cache: false
+      context_window: 1000000
+      max_output_tokens: 8192
     enabled: true
 
 routes:
@@ -217,7 +233,6 @@ routes:
 
 profiles:
   default: sonnet
-  cheap: deepseek
   best: sonnet
 ```
 
@@ -230,6 +245,109 @@ Rules:
 - API keys should use `env:NAME` references by default.
 - Plaintext API keys may be supported for convenience but should not be encouraged.
 - Config has `version: 1` from the start to support future migrations.
+
+Validation requirements:
+
+- `server.host` must default to loopback and phase 1 should reject non-loopback hosts unless an explicit unsafe override is added later.
+- Provider IDs, model IDs, route aliases, and discovery aliases must be unique within their namespaces.
+- Enabled models must reference enabled providers.
+- Enabled routes must contain at least one enabled target.
+- Route targets must reference enabled models.
+- `claude_discovery_alias` values should be empty or begin with `claude` or `anthropic` so Claude Code model discovery behaves predictably.
+- Profiles must reference existing route aliases or exposed model aliases.
+- Secret values must be redacted in validation errors, logs, status output, and tests.
+
+Config loading should produce an immutable runtime snapshot. Health state, request logs, and counters live outside that snapshot so future reloads can swap config safely without racing request handlers.
+
+## Normalized Protocol Contract
+
+The core router must not route raw Anthropic, OpenAI, or Gemini wire structs directly. Client adapters convert incoming requests into a normalized protocol first, and provider adapters convert normalized protocol into upstream wire formats.
+
+The normalized request should represent these concepts explicitly:
+
+- model alias requested by the client
+- system messages or system text blocks
+- ordered conversation messages
+- content blocks: text, image metadata, tool use, and tool result
+- tool definitions with JSON schemas
+- tool choice
+- max output tokens
+- temperature and common sampling fields when present
+- stream flag
+- client metadata and safe pass-through headers
+
+The normalized response should represent:
+
+- response ID
+- output role
+- ordered content blocks
+- stop reason
+- usage if available
+- provider metadata needed for logs but not exposed as client protocol fields
+
+The normalized stream should use provider-neutral events:
+
+- message start
+- content block start
+- content delta
+- content block stop
+- message delta
+- message stop
+- error
+
+Adapters can preserve provider-specific details in metadata, but the router must make decisions from normalized capabilities and route state, not from provider wire structs.
+
+## Capability Matrix
+
+Every model should expose a capability record. Phase 1 should include:
+
+- `streaming`
+- `tools`
+- `tool_results`
+- `vision`
+- `system_messages`
+- `prompt_cache`
+- `context_window`
+- `max_output_tokens`
+
+The router should check required capabilities before selecting a target. Examples:
+
+- A request with tools must not be sent to a target with `tools: false`.
+- A request with images must not be sent to a target with `vision: false`.
+- A streaming request must prefer targets with `streaming: true`; if none exist, return a clear unsupported-capability error rather than silently switching to non-streaming.
+
+Capability checks are part of routing, not provider adapter best-effort behavior. This prevents a weak provider from failing late after the request has already been transformed.
+
+## Adapter Contracts
+
+Provider adapters must implement a small stable contract:
+
+- Validate that the normalized request can be represented by the provider.
+- Build the upstream HTTP request path, method, headers, and body.
+- Map non-streaming upstream responses into normalized responses.
+- Map streaming upstream events into normalized stream events.
+- Classify upstream failures as retryable, fatal, auth, rate-limit, or invalid-request.
+
+Adapter instances should be stateless. Streaming mappers may hold per-request state because provider stream formats often require stateful conversion.
+
+Provider adapter packages must not read config files directly, mutate route state, or write logs directly. They receive explicit inputs and return structured outputs. This keeps adapter tests small and makes future client protocols easier to add.
+
+## Provider URL And Header Rules
+
+OpenAI-compatible providers differ in base URL shape. The OpenAI-compatible adapter should normalize these safely:
+
+- Base URL may end at host, `/v1`, or another provider-specific API prefix.
+- Chat completions should resolve to exactly one `/chat/completions` path.
+- Model listing should resolve to exactly one `/models` path where supported.
+- Duplicate `/v1/v1` and missing `/v1` cases must be covered by tests.
+
+Header handling:
+
+- Client `Authorization` must never be forwarded upstream.
+- Upstream auth is built from provider config only.
+- Safe Claude Code headers, such as `anthropic-version` and `anthropic-beta`, may be preserved in request metadata for adapters that need them.
+- OpenRouter should receive `HTTP-Referer` and `X-OpenRouter-Title` when configured.
+- All configured custom headers must be redacted if they look like secrets.
 
 ## CLI UX
 
@@ -244,6 +362,7 @@ arkrouter provider add openai-compatible
 arkrouter model add
 arkrouter route add sonnet
 arkrouter serve
+arkrouter validate
 arkrouter activate claude
 arkrouter status
 arkrouter doctor
@@ -260,6 +379,19 @@ export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY='1'
 ```
 
 `arkrouter activate claude --write-settings` may be added if it can safely write `.claude/settings.local.json` without overwriting unrelated user settings.
+
+## Security Model
+
+Phase 1 is local-first:
+
+- The HTTP server binds to loopback by default.
+- The local client key protects the gateway from accidental local cross-process access.
+- Upstream API keys should use environment references in generated config.
+- Config files containing generated local secrets should be written with owner-only permissions where the OS supports it.
+- Logs must not contain API keys, auth headers, prompt body, response body, or resolved secret values.
+- Debug body logging is not part of phase 1.
+
+The local client key is not a provider secret. It can be generated and stored in the local config to make Claude Code activation simple. Provider keys are more sensitive and should remain in environment variables by default.
 
 ## Request Flow
 
@@ -348,6 +480,35 @@ Health state:
 
 `arkrouter status`, `arkrouter doctor`, and `GET /healthz` should expose enough data to debug Claude Code failures without turning on body logging.
 
+## Runtime Model
+
+The server runtime should be built from an immutable config snapshot:
+
+- Request handlers read config through a snapshot pointer.
+- Route resolution uses maps built at load time, not repeated linear scans on every request.
+- Health state is separate from config and protected by a narrow synchronization boundary.
+- Upstream HTTP clients must use explicit timeouts.
+- Server shutdown should respect request contexts.
+
+This runtime model keeps phase 1 simple while allowing future config reloads without redesigning request handling.
+
+## Implementation Slices
+
+Implementation should happen in thin vertical slices instead of building all adapters at once:
+
+1. Repository scaffold, Go module, CLI shell, config load and validation.
+2. Claude activation, `/healthz`, `/v1/models`, and static route/model snapshot.
+3. Anthropic request decode/encode and local non-streaming test adapter.
+4. OpenAI-compatible non-streaming adapter.
+5. OpenAI-compatible streaming adapter and SSE conversion.
+6. Tool use and tool result conversion for OpenAI-compatible providers.
+7. Fallback routing, retry classification, and health state.
+8. Gemini adapter.
+9. Anthropic passthrough adapter.
+10. Logs, status, doctor, and test commands.
+
+Each slice should leave the binary buildable and tests passing.
+
 ## Testing Strategy
 
 Required test areas:
@@ -365,6 +526,21 @@ Required test areas:
 - HTTP integration tests for `/v1/models`, `/v1/messages`, and `/v1/messages/count_tokens`.
 
 Golden fixtures should be used for protocol mapping. This reduces regression risk when provider adapters evolve.
+
+Acceptance criteria for phase 1:
+
+- `arkrouter init` creates a valid local config.
+- `arkrouter validate` accepts generated config and rejects invalid references.
+- `arkrouter activate claude` prints working Claude Code environment exports.
+- `arkrouter serve` starts on loopback with the configured client key.
+- `/v1/models` returns route aliases and Claude discovery aliases.
+- `/v1/messages` can complete a non-streaming OpenAI-compatible upstream request.
+- `/v1/messages` can complete a streaming OpenAI-compatible upstream request.
+- Tool use round-trips through an OpenAI-compatible provider fixture.
+- Fallback tries the second target on timeout, `429`, and `5xx`.
+- Auth/config failures do not fallback.
+- Logs show routing, latency, status, and fallback reason without prompt or secret data.
+- `go test ./...` passes.
 
 ## Implementation Planning Decisions
 
