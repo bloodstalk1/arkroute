@@ -239,11 +239,11 @@ Provider adapters should support:
 ```go
 BuildRequest(...)
 MapResponse(...)
-NewStreamMapper() StreamMapper
+NewStreamMapper() (StreamMapper, bool)
 ClassifyError(status int, body []byte) ErrorClass
 ```
 
-`NewStreamMapper` is critical. Claude streaming should not hardcode the OpenAI stream mapper. If a provider does not support stream mapping, runtime should return a structured unsupported-capability error before streaming starts.
+`NewStreamMapper` is critical. Claude streaming should not hardcode the OpenAI stream mapper. If a provider does not support stream mapping, runtime should return a structured unsupported-capability error before streaming starts. Do not advertise streaming support with a lossy placeholder mapper; return `false` until a provider-specific parser maps content deltas correctly.
 
 Stream mapper contract:
 
@@ -316,6 +316,7 @@ Trace sink interface:
 ```go
 type TraceSink interface {
     Emit(event TraceEvent)
+    Stats() Stats
 }
 ```
 
@@ -555,6 +556,8 @@ The runtime executor should use this classification for:
 - Anthropic-compatible error response
 
 Avoid matching raw error strings in CLI code. Use structured error categories.
+
+Implementation boundary: error class constants should live in a small neutral package, such as `internal/failure`, instead of `internal/runtime`. Provider adapters and runtime both need these constants; putting them in runtime would create an import cycle because runtime also depends on adapters.
 
 Error classification rules:
 
