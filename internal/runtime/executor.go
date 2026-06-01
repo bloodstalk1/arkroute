@@ -1,12 +1,14 @@
 package runtime
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"bat.dev/arkrouter/internal/adapter"
@@ -158,4 +160,119 @@ func statusForAttempt(attempt Attempt) string {
 		return "degraded"
 	}
 	return "unhealthy"
+}
+
+func (e *Executor) Stream(ctx context.Context, req ExecuteRequest) (StreamResult, error) {
+	req.Request.Stream = true
+	e.emit(req, observability.EventRequestStarted, observability.TraceEvent{})
+	plan, err := e.Router.Plan(req.Model, req.Requirements)
+	if err != nil {
+		return StreamResult{}, &ExecutionError{Class: ErrorRouteNotFound, Message: err.Error()}
+	}
+	targets, reason := router.PolicyFor(plan.Strategy).Select(plan, e.Health.Snapshot())
+	attempts := []Attempt{}
+	for i, target := range targets {
+		providerAdapter, ok := e.Adapters.Get(target.Provider.Type)
+		if !ok {
+			return StreamResult{}, &ExecutionError{Class: ErrorUpstreamFatal, Message: "unsupported provider type " + target.Provider.Type, Attempts: attempts}
+		}
+		mapper, ok := providerAdapter.NewStreamMapper()
+		if !ok {
+			return StreamResult{}, &ExecutionError{Class: ErrorUnsupportedCapability, Message: "provider does not support streaming", Attempts: attempts}
+		}
+		upstreamReq, err := providerAdapter.BuildRequest(req.Request, target.Provider, target.Model)
+		if err != nil {
+			return StreamResult{}, &ExecutionError{Class: ErrorInvalidRequest, Message: err.Error(), Attempts: attempts}
+		}
+		start := time.Now()
+		streamCtx, cancel := context.WithCancel(ctx)
+		httpReq, err := http.NewRequestWithContext(streamCtx, upstreamReq.Method, upstreamReq.URL, bytes.NewReader(upstreamReq.Body))
+		if err != nil {
+			cancel()
+			return StreamResult{}, &ExecutionError{Class: ErrorInvalidRequest, Message: err.Error(), Attempts: attempts}
+		}
+		httpReq.Header = upstreamReq.Headers.Clone()
+		e.emit(req, observability.EventTargetSelected, traceForTarget(target, observability.TraceEvent{Route: plan.Alias, Strategy: plan.Strategy, Reason: reason}))
+		upstreamResp, err := e.Client.Do(httpReq)
+		if err != nil {
+			class := ErrorUpstreamFatal
+			if streamCtx.Err() != nil {
+				class = ErrorUpstreamTimeout
+			}
+			attempt := Attempt{Target: target, ErrorClass: class, ErrorMessage: err.Error(), Retryable: class.Retryable(), Latency: time.Since(start)}
+			attempts = append(attempts, attempt)
+			if !attempt.Retryable || i == len(targets)-1 {
+				cancel()
+				return StreamResult{}, &ExecutionError{Class: class, Message: err.Error(), Attempts: attempts}
+			}
+			cancel()
+			continue
+		}
+		if upstreamResp.StatusCode < 200 || upstreamResp.StatusCode >= 300 {
+			body, _ := io.ReadAll(upstreamResp.Body)
+			_ = upstreamResp.Body.Close()
+			cancel()
+			class := providerAdapter.ClassifyError(upstreamResp.StatusCode, body)
+			attempt := Attempt{Target: target, StatusCode: upstreamResp.StatusCode, ErrorClass: class, ErrorMessage: fmt.Sprintf("upstream returned %d", upstreamResp.StatusCode), Retryable: class.Retryable(), Latency: time.Since(start)}
+			attempts = append(attempts, attempt)
+			if !attempt.Retryable || i == len(targets)-1 {
+				return StreamResult{}, &ExecutionError{Class: class, Message: attempt.ErrorMessage, Attempts: attempts}
+			}
+			e.emit(req, observability.EventFallback, traceForTarget(target, observability.TraceEvent{Route: plan.Alias, Strategy: plan.Strategy, Status: attempt.StatusCode, Retryable: true, ErrorClass: string(class), Reason: attempt.ErrorMessage}))
+			continue
+		}
+		events := make(chan protocol.StreamEvent, 16)
+		done := make(chan struct{})
+		var closeBody sync.Once
+		closeBodyOnce := func() {
+			closeBody.Do(func() {
+				_ = upstreamResp.Body.Close()
+			})
+		}
+		go func() {
+			defer close(events)
+			defer close(done)
+			defer closeBodyOnce()
+			scanner := bufio.NewScanner(upstreamResp.Body)
+			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+			for scanner.Scan() {
+				mapped, err := mapper.MapLine(scanner.Bytes())
+				if err != nil {
+					select {
+					case events <- protocol.StreamEvent{Type: "error", Error: err.Error()}:
+					case <-streamCtx.Done():
+					}
+					return
+				}
+				for _, event := range mapped {
+					select {
+					case events <- event:
+					case <-streamCtx.Done():
+						return
+					}
+				}
+				select {
+				case <-streamCtx.Done():
+					return
+				default:
+				}
+			}
+			if err := scanner.Err(); err != nil && streamCtx.Err() == nil {
+				select {
+				case events <- protocol.StreamEvent{Type: "error", Error: err.Error()}:
+				case <-streamCtx.Done():
+				}
+			}
+		}()
+		closeFn := func() error {
+			cancel()
+			closeBodyOnce()
+			<-done
+			return nil
+		}
+		e.Health.Update(router.Update{ProviderID: target.Provider.ID, UpstreamModel: target.Model.UpstreamModel, Status: "ok", StatusCode: upstreamResp.StatusCode, Latency: time.Since(start)})
+		e.emit(req, observability.EventStreamStarted, traceForTarget(target, observability.TraceEvent{Route: plan.Alias, Strategy: plan.Strategy, Status: upstreamResp.StatusCode}))
+		return StreamResult{Target: target, Attempts: append(attempts, Attempt{Target: target, StatusCode: upstreamResp.StatusCode, Latency: time.Since(start)}), Events: events, Close: closeFn}, nil
+	}
+	return StreamResult{}, &ExecutionError{Class: ErrorRouteNotFound, Message: "route has no targets", Attempts: attempts}
 }

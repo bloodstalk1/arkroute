@@ -57,6 +57,13 @@ func (e *ExecutionError) Error() string {
 	return e.Message
 }
 
+type StreamResult struct {
+	Target   router.Target
+	Attempts []Attempt
+	Events   <-chan protocol.StreamEvent
+	Close    func() error
+}
+
 func AsExecutionError(err error, target **ExecutionError) bool {
 	var execErr *ExecutionError
 	if errors.As(err, &execErr) {
