@@ -41,3 +41,29 @@ func TestRunVersion(t *testing.T) {
 		t.Fatalf("stdout = %q, want version", stdout.String())
 	}
 }
+
+func TestRunActivateClaudePrintsExports(t *testing.T) {
+	t.Setenv("ARKROUTER_CONFIG", "")
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "activate", "claude", "--host", "127.0.0.1", "--port", "20128", "--client-key", "local-key"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	out := stdout.String()
+	for _, want := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("activate output missing %s: %q", want, out)
+		}
+	}
+}
+
+func TestRunValidateMissingConfig(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "validate", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "validate failed") {
+		t.Fatalf("stderr = %q, want validate failed", stderr.String())
+	}
+}

@@ -3,6 +3,9 @@ package cli
 import (
 	"fmt"
 	"io"
+
+	"bat.dev/arkrouter/internal/app"
+	"bat.dev/arkrouter/internal/config"
 )
 
 const version = "dev"
@@ -20,6 +23,36 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	case "help", "-h", "--help":
 		printHelp(stdout)
 		return 0
+	case "init":
+		path, err := app.InitConfig(flagValue(args[2:], "--config"), hasFlag(args[2:], "--force"))
+		if err != nil {
+			fmt.Fprintf(stderr, "init failed: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "created %s\n", path)
+		return 0
+	case "validate":
+		cfg, err := config.LoadFile(flagValue(args[2:], "--config"))
+		if err == nil {
+			err = cfg.Validate()
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "validate failed: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, "config ok")
+		return 0
+	case "activate":
+		if len(args) >= 3 && args[2] == "claude" {
+			cfg := config.MinimalValidConfig("local-key")
+			if key := flagValue(args[3:], "--client-key"); key != "" {
+				cfg.Server.ClientKey = key
+			}
+			app.PrintClaudeActivation(stdout, cfg)
+			return 0
+		}
+		fmt.Fprintln(stderr, "usage: arkrouter activate claude")
+		return 2
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printHelp(stderr)
@@ -40,4 +73,22 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  test              Test a model route")
 	fmt.Fprintln(w, "  logs              Print JSONL trace logs")
 	fmt.Fprintln(w, "  version           Print version")
+}
+
+func hasFlag(args []string, name string) bool {
+	for _, arg := range args {
+		if arg == name {
+			return true
+		}
+	}
+	return false
+}
+
+func flagValue(args []string, name string) string {
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == name {
+			return args[i+1]
+		}
+	}
+	return ""
 }
