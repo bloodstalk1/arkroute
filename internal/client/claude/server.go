@@ -29,6 +29,8 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/v1/models", s.withAuth(s.handleModels))
+	mux.HandleFunc("/v1/messages", s.withAuth(s.handleMessages))
+	mux.HandleFunc("/v1/messages/count_tokens", s.withAuth(s.handleCountTokens))
 	return mux
 }
 

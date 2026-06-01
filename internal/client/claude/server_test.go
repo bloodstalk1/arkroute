@@ -49,6 +49,54 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestMessagesNonStreamingOpenAICompatible(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/chat/completions" {
+			t.Fatalf("upstream path = %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer sk-test" {
+			t.Fatalf("upstream auth = %q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"chatcmpl_test","choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2}}`))
+	}))
+	defer upstream.Close()
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].BaseURL = upstream.URL + "/api/v1"
+	cfg.Providers[0].APIKey = "sk-test"
+	snapshot, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatalf("BuildSnapshot() error = %v", err)
+	}
+	srv := NewServer(Deps{Snapshot: snapshot, Router: router.New(snapshot, router.NewHealthStore())})
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"sonnet","max_tokens":128,"messages":[{"role":"user","content":[{"type":"text","text":"ping"}]}]}`))
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"text":"pong"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestCountTokensReturnsLocalEstimate(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", strings.NewReader(`{"model":"sonnet","messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}]}`))
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"input_tokens"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
 func testServer(t *testing.T) *Server {
 	t.Helper()
 	cfg := config.MinimalValidConfig("local-key")

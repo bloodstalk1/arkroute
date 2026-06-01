@@ -53,6 +53,12 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		fmt.Fprintln(stderr, "usage: arkrouter activate claude")
 		return 2
+	case "serve":
+		if err := app.Serve(flagValue(args[2:], "--config")); err != nil {
+			fmt.Fprintf(stderr, "serve failed: %v\n", err)
+			return 1
+		}
+		return 0
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printHelp(stderr)
