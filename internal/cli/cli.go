@@ -59,6 +59,34 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "doctor":
+		if err := app.Doctor(flagValue(args[2:], "--config"), stdout); err != nil {
+			fmt.Fprintf(stderr, "doctor failed: %v\n", err)
+			return 1
+		}
+		return 0
+	case "logs":
+		if err := app.PrintLogs(flagValue(args[2:], "--file"), stdout); err != nil {
+			fmt.Fprintf(stderr, "logs failed: %v\n", err)
+			return 1
+		}
+		return 0
+	case "status":
+		if err := app.Doctor(flagValue(args[2:], "--config"), stdout); err != nil {
+			fmt.Fprintf(stderr, "status failed: %v\n", err)
+			return 1
+		}
+		return 0
+	case "test":
+		if len(args) < 4 {
+			fmt.Fprintln(stderr, "usage: arkrouter test <model> <prompt>")
+			return 2
+		}
+		if err := app.TestRoute(flagValue(args[4:], "--config"), args[2], args[3], stdout); err != nil {
+			fmt.Fprintf(stderr, "test failed: %v\n", err)
+			return 1
+		}
+		return 0
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printHelp(stderr)

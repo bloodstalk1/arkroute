@@ -67,3 +67,36 @@ func TestRunValidateMissingConfig(t *testing.T) {
 		t.Fatalf("stderr = %q, want validate failed", stderr.String())
 	}
 }
+
+func TestRunDoctor(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "doctor", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "doctor failed") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunLogsMissingFile(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "logs", "--file", "/path/does/not/exist"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "logs failed") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunTestMissingArgs(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "test"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "usage: arkrouter test <model> <prompt>") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}

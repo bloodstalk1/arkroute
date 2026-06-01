@@ -1,0 +1,5 @@
+.DS_Store
+arkrouter
+*.test
+coverage.out
+dist/
