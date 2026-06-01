@@ -73,3 +73,38 @@ func TestMapResponse(t *testing.T) {
 		t.Fatalf("response = %+v", resp)
 	}
 }
+
+func TestStreamMapperTextDeltas(t *testing.T) {
+	mapper := NewStreamMapper()
+	events, err := mapper.MapLine([]byte(`data: {"choices":[{"delta":{"role":"assistant","content":"hel"},"index":0}]}`))
+	if err != nil {
+		t.Fatalf("MapLine() error = %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("events empty")
+	}
+	events, err = mapper.MapLine([]byte(`data: {"choices":[{"delta":{"content":"lo"},"index":0,"finish_reason":"stop"}]}`))
+	if err != nil {
+		t.Fatalf("MapLine() error = %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.Type == "content_delta" && event.Delta == "lo" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("events missing content delta: %+v", events)
+	}
+}
+
+func TestStreamMapperDone(t *testing.T) {
+	mapper := NewStreamMapper()
+	events, err := mapper.MapLine([]byte("data: [DONE]"))
+	if err != nil {
+		t.Fatalf("MapLine() error = %v", err)
+	}
+	if len(events) != 1 || events[0].Type != "message_stop" {
+		t.Fatalf("events = %+v", events)
+	}
+}

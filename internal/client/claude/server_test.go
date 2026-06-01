@@ -109,3 +109,34 @@ func testServer(t *testing.T) *Server {
 		Router:   router.New(snapshot, router.NewHealthStore()),
 	})
 }
+
+func TestMessagesStreamingOpenAICompatible(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"hi\"},\"index\":0}]}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer upstream.Close()
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].BaseURL = upstream.URL + "/api/v1"
+	cfg.Providers[0].APIKey = "sk-test"
+	snapshot, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatalf("BuildSnapshot() error = %v", err)
+	}
+	srv := NewServer(Deps{Snapshot: snapshot, Router: router.New(snapshot, router.NewHealthStore())})
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"sonnet","max_tokens":128,"stream":true,"messages":[{"role":"user","content":[{"type":"text","text":"ping"}]}]}`))
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{"event: message_start", "event: content_block_delta", "event: message_stop"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("stream missing %s: %s", want, rec.Body.String())
+		}
+	}
+}

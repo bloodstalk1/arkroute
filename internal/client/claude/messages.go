@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -56,6 +57,10 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer upstreamResp.Body.Close()
+	if anthropicReq.Stream {
+		s.handleStreamingResponse(w, upstreamResp, target.Model.ExposedAlias)
+		return
+	}
 	upstreamBody, _ := io.ReadAll(upstreamResp.Body)
 	if upstreamResp.StatusCode < 200 || upstreamResp.StatusCode >= 300 {
 		writeJSON(w, http.StatusBadGateway, anthropicError("api_error", "upstream returned non-success status"))
@@ -67,6 +72,26 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, mapNormalizedResponse(mapped, target.Model.ExposedAlias))
+}
+
+func (s *Server) handleStreamingResponse(w http.ResponseWriter, upstreamResp *http.Response, model string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	scanner := bufio.NewScanner(upstreamResp.Body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	mapper := openaiadapter.NewStreamMapper()
+	for scanner.Scan() {
+		events, err := mapper.MapLine(scanner.Bytes())
+		if err != nil {
+			return
+		}
+		for _, event := range events {
+			writeAnthropicStreamEvent(w, event, model)
+		}
+	}
 }
 
 func (s *Server) handleCountTokens(w http.ResponseWriter, r *http.Request) {
