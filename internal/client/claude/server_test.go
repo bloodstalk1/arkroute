@@ -140,3 +140,51 @@ func TestMessagesStreamingOpenAICompatible(t *testing.T) {
 		}
 	}
 }
+
+func TestMessagesFallbackOnRetryableStatus(t *testing.T) {
+	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`rate limited`))
+	}))
+	defer first.Close()
+	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"ok","choices":[{"message":{"role":"assistant","content":"fallback ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer second.Close()
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers = append(cfg.Providers, cfg.Providers[0])
+	cfg.Providers[0].ID = "first"
+	cfg.Providers[0].BaseURL = first.URL + "/v1"
+	cfg.Providers[0].APIKey = "sk-first"
+	cfg.Providers[1].ID = "second"
+	cfg.Providers[1].BaseURL = second.URL + "/v1"
+	cfg.Providers[1].APIKey = "sk-second"
+	cfg.Models = append(cfg.Models, cfg.Models[0])
+	cfg.Models[0].ID = "first-model"
+	cfg.Models[0].ProviderID = "first"
+	cfg.Models[0].ExposedAlias = "first-alias"
+	cfg.Models[0].ClaudeDiscoveryAlias = ""
+	cfg.Models[1].ID = "second-model"
+	cfg.Models[1].ProviderID = "second"
+	cfg.Models[1].ExposedAlias = "second-alias"
+	cfg.Models[1].ClaudeDiscoveryAlias = ""
+	cfg.Routes[0].Targets = []config.RouteTarget{{ModelID: "first-model", Enabled: true}, {ModelID: "second-model", Enabled: true}}
+	snapshot, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatalf("BuildSnapshot() error = %v", err)
+	}
+	health := router.NewHealthStore()
+	srv := NewServer(Deps{Snapshot: snapshot, Router: router.New(snapshot, health), Health: health})
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"sonnet","max_tokens":128,"messages":[{"role":"user","content":[{"type":"text","text":"ping"}]}]}`))
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "fallback ok") {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}

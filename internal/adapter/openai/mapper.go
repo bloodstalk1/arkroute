@@ -61,13 +61,14 @@ func (a Adapter) MapResponse(body []byte) (protocol.Response, error) {
 func mapMessages(messages []protocol.Message) []oai.Message {
 	out := make([]oai.Message, 0, len(messages))
 	for _, msg := range messages {
-		text := ""
 		for _, block := range msg.Content {
 			if block.Type == "text" {
-				text += block.Text
+				out = append(out, oai.Message{Role: string(msg.Role), Content: block.Text})
+			}
+			if block.Type == "tool_result" {
+				out = append(out, oai.Message{Role: "tool", ToolCallID: block.ToolUseID, Content: string(block.Content)})
 			}
 		}
-		out = append(out, oai.Message{Role: string(msg.Role), Content: text})
 	}
 	return out
 }

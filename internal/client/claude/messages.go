@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -30,7 +31,6 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, anthropicError("not_found_error", err.Error()))
 		return
 	}
-	target := targets[0]
 	normalized := protocol.Request{
 		Model:     anthropicReq.Model,
 		MaxTokens: anthropicReq.MaxTokens,
@@ -38,40 +38,72 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		Tools:     mapAnthropicTools(anthropicReq.Tools),
 		Messages:  mapAnthropicMessages(anthropicReq.Messages),
 	}
-	adapter := openaiadapter.Adapter{}
-	upstreamReq, err := adapter.BuildRequest(normalized, target.Provider, target.Model)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
+	if anthropicReq.Stream {
+		target := targets[0]
+		adapter := openaiadapter.Adapter{}
+		upstreamReq, err := adapter.BuildRequest(normalized, target.Provider, target.Model)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
+			return
+		}
+		client := &http.Client{Timeout: time.Duration(s.deps.Snapshot.Config.Server.UpstreamTimeoutSeconds) * time.Second}
+		httpReq, err := http.NewRequestWithContext(r.Context(), upstreamReq.Method, upstreamReq.URL, bytes.NewReader(upstreamReq.Body))
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
+			return
+		}
+		httpReq.Header = upstreamReq.Headers.Clone()
+		upstreamResp, err := client.Do(httpReq)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
+			return
+		}
+		defer upstreamResp.Body.Close()
+		s.handleStreamingResponse(w, upstreamResp, target.Model.ExposedAlias)
 		return
+	}
+	for i, target := range targets {
+		resp, status, err := s.callTarget(r, normalized, target)
+		if err == nil {
+			s.deps.Health.Set(target.Provider.ID, "ok")
+			writeJSON(w, http.StatusOK, mapNormalizedResponse(resp, target.Model.ExposedAlias))
+			return
+		}
+		if !router.IsRetryableStatus(status) || i == len(targets)-1 {
+			s.deps.Health.Set(target.Provider.ID, "unhealthy")
+			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
+			return
+		}
+		s.deps.Health.Set(target.Provider.ID, "degraded")
+	}
+}
+
+func (s *Server) callTarget(r *http.Request, req protocol.Request, target router.Target) (protocol.Response, int, error) {
+	adapter := openaiadapter.Adapter{}
+	upstreamReq, err := adapter.BuildRequest(req, target.Provider, target.Model)
+	if err != nil {
+		return protocol.Response{}, 0, err
 	}
 	client := &http.Client{Timeout: time.Duration(s.deps.Snapshot.Config.Server.UpstreamTimeoutSeconds) * time.Second}
 	httpReq, err := http.NewRequestWithContext(r.Context(), upstreamReq.Method, upstreamReq.URL, bytes.NewReader(upstreamReq.Body))
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
-		return
+		return protocol.Response{}, 0, err
 	}
 	httpReq.Header = upstreamReq.Headers.Clone()
 	upstreamResp, err := client.Do(httpReq)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
-		return
+		return protocol.Response{}, 0, err
 	}
 	defer upstreamResp.Body.Close()
-	if anthropicReq.Stream {
-		s.handleStreamingResponse(w, upstreamResp, target.Model.ExposedAlias)
-		return
-	}
 	upstreamBody, _ := io.ReadAll(upstreamResp.Body)
 	if upstreamResp.StatusCode < 200 || upstreamResp.StatusCode >= 300 {
-		writeJSON(w, http.StatusBadGateway, anthropicError("api_error", "upstream returned non-success status"))
-		return
+		return protocol.Response{}, upstreamResp.StatusCode, fmt.Errorf("upstream returned %d", upstreamResp.StatusCode)
 	}
 	mapped, err := adapter.MapResponse(upstreamBody)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
-		return
+		return protocol.Response{}, 0, err
 	}
-	writeJSON(w, http.StatusOK, mapNormalizedResponse(mapped, target.Model.ExposedAlias))
+	return mapped, upstreamResp.StatusCode, nil
 }
 
 func (s *Server) handleStreamingResponse(w http.ResponseWriter, upstreamResp *http.Response, model string) {

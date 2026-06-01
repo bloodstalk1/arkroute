@@ -108,3 +108,23 @@ func TestStreamMapperDone(t *testing.T) {
 		t.Fatalf("events = %+v", events)
 	}
 }
+
+func TestBuildRequestMapsToolResults(t *testing.T) {
+	adapter := Adapter{}
+	req := protocol.Request{
+		Model: "sonnet",
+		Messages: []protocol.Message{{
+			Role:    protocol.RoleUser,
+			Content: []protocol.ContentBlock{{Type: "tool_result", ToolUseID: "toolu_1", Content: json.RawMessage(`"file contents"`)}},
+		}},
+	}
+	provider := config.ProviderConfig{BaseURL: "https://example.test/v1", APIKey: "sk-test"}
+	model := config.ModelConfig{UpstreamModel: "model"}
+	out, err := adapter.BuildRequest(req, provider, model)
+	if err != nil {
+		t.Fatalf("BuildRequest() error = %v", err)
+	}
+	if !strings.Contains(string(out.Body), `"tool_call_id":"toolu_1"`) {
+		t.Fatalf("body missing tool result mapping: %s", out.Body)
+	}
+}
