@@ -5,13 +5,12 @@ import (
 	"net/http"
 
 	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/router"
+	arkruntime "bat.dev/arkrouter/internal/runtime"
 )
 
 type Deps struct {
 	Snapshot config.Snapshot
-	Router   *router.Router
-	Health   *router.HealthStore
+	Executor *arkruntime.Executor
 }
 
 type Server struct {
@@ -19,9 +18,6 @@ type Server struct {
 }
 
 func NewServer(deps Deps) *Server {
-	if deps.Health == nil {
-		deps.Health = router.NewHealthStore()
-	}
 	return &Server{deps: deps}
 }
 

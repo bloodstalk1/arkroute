@@ -5,9 +5,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"bat.dev/arkrouter/internal/adapter/builtin"
 	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkrouter/internal/observability"
 	"bat.dev/arkrouter/internal/router"
+	arkruntime "bat.dev/arkrouter/internal/runtime"
 )
 
 func TestModelsRequiresAuth(t *testing.T) {
@@ -70,7 +74,16 @@ func TestMessagesNonStreamingOpenAICompatible(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildSnapshot() error = %v", err)
 	}
-	srv := NewServer(Deps{Snapshot: snapshot, Router: router.New(snapshot, router.NewHealthStore())})
+	health := router.NewHealthStore()
+	executor := arkruntime.NewExecutor(arkruntime.Deps{
+		Snapshot: snapshot,
+		Router:   router.New(snapshot, health),
+		Adapters: builtin.DefaultRegistry(),
+		Health:   health,
+		Trace:    observability.NewNoopSink(),
+		Client:   &http.Client{Timeout: time.Second},
+	})
+	srv := NewServer(Deps{Snapshot: snapshot, Executor: executor})
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"sonnet","max_tokens":128,"messages":[{"role":"user","content":[{"type":"text","text":"ping"}]}]}`))
 	req.Header.Set("Authorization", "Bearer local-key")
 	rec := httptest.NewRecorder()
@@ -104,10 +117,16 @@ func testServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatalf("BuildSnapshot() error = %v", err)
 	}
-	return NewServer(Deps{
+	health := router.NewHealthStore()
+	executor := arkruntime.NewExecutor(arkruntime.Deps{
 		Snapshot: snapshot,
-		Router:   router.New(snapshot, router.NewHealthStore()),
+		Router:   router.New(snapshot, health),
+		Adapters: builtin.DefaultRegistry(),
+		Health:   health,
+		Trace:    observability.NewNoopSink(),
+		Client:   &http.Client{Timeout: time.Second},
 	})
+	return NewServer(Deps{Snapshot: snapshot, Executor: executor})
 }
 
 func TestMessagesStreamingOpenAICompatible(t *testing.T) {
@@ -126,7 +145,16 @@ func TestMessagesStreamingOpenAICompatible(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildSnapshot() error = %v", err)
 	}
-	srv := NewServer(Deps{Snapshot: snapshot, Router: router.New(snapshot, router.NewHealthStore())})
+	health := router.NewHealthStore()
+	executor := arkruntime.NewExecutor(arkruntime.Deps{
+		Snapshot: snapshot,
+		Router:   router.New(snapshot, health),
+		Adapters: builtin.DefaultRegistry(),
+		Health:   health,
+		Trace:    observability.NewNoopSink(),
+		Client:   &http.Client{Timeout: time.Second},
+	})
+	srv := NewServer(Deps{Snapshot: snapshot, Executor: executor})
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"sonnet","max_tokens":128,"stream":true,"messages":[{"role":"user","content":[{"type":"text","text":"ping"}]}]}`))
 	req.Header.Set("Authorization", "Bearer local-key")
 	rec := httptest.NewRecorder()
@@ -176,7 +204,15 @@ func TestMessagesFallbackOnRetryableStatus(t *testing.T) {
 		t.Fatalf("BuildSnapshot() error = %v", err)
 	}
 	health := router.NewHealthStore()
-	srv := NewServer(Deps{Snapshot: snapshot, Router: router.New(snapshot, health), Health: health})
+	executor := arkruntime.NewExecutor(arkruntime.Deps{
+		Snapshot: snapshot,
+		Router:   router.New(snapshot, health),
+		Adapters: builtin.DefaultRegistry(),
+		Health:   health,
+		Trace:    observability.NewNoopSink(),
+		Client:   &http.Client{Timeout: time.Second},
+	})
+	srv := NewServer(Deps{Snapshot: snapshot, Executor: executor})
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"sonnet","max_tokens":128,"messages":[{"role":"user","content":[{"type":"text","text":"ping"}]}]}`))
 	req.Header.Set("Authorization", "Bearer local-key")
 	rec := httptest.NewRecorder()

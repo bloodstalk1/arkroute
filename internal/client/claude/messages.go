@@ -1,21 +1,16 @@
 package claude
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
-	"bat.dev/arkrouter/internal/adapter"
-	anthropicadapter "bat.dev/arkrouter/internal/adapter/anthropic"
-	geminiadapter "bat.dev/arkrouter/internal/adapter/gemini"
-	openaiadapter "bat.dev/arkrouter/internal/adapter/openai"
 	"bat.dev/arkrouter/internal/protocol"
 	aproto "bat.dev/arkrouter/internal/protocol/anthropic"
 	"bat.dev/arkrouter/internal/router"
+	arkruntime "bat.dev/arkrouter/internal/runtime"
 )
 
 func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
@@ -29,11 +24,6 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, anthropicError("invalid_request_error", "invalid Anthropic request"))
 		return
 	}
-	targets, err := s.deps.Router.Resolve(anthropicReq.Model, router.Requirements{Streaming: anthropicReq.Stream, Tools: len(anthropicReq.Tools) > 0})
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, anthropicError("not_found_error", err.Error()))
-		return
-	}
 	normalized := protocol.Request{
 		Model:     anthropicReq.Model,
 		MaxTokens: anthropicReq.MaxTokens,
@@ -42,91 +32,33 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		Messages:  mapAnthropicMessages(anthropicReq.Messages),
 	}
 	if anthropicReq.Stream {
-		target := targets[0]
-		pa := selectAdapter(target.Provider.Type)
-		upstreamReq, err := pa.BuildRequest(normalized, target.Provider, target.Model)
+		stream, err := s.deps.Executor.Stream(r.Context(), arkruntime.ExecuteRequest{
+			RequestID:    requestID(r),
+			Client:       "claude",
+			Model:        anthropicReq.Model,
+			Requirements: router.Requirements{Streaming: true, Tools: len(anthropicReq.Tools) > 0},
+			Request:      normalized,
+		})
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
+			writeExecutionError(w, err)
 			return
 		}
-		client := &http.Client{Timeout: time.Duration(s.deps.Snapshot.Config.Server.UpstreamTimeoutSeconds) * time.Second}
-		httpReq, err := http.NewRequestWithContext(r.Context(), upstreamReq.Method, upstreamReq.URL, bytes.NewReader(upstreamReq.Body))
-		if err != nil {
-			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
-			return
-		}
-		httpReq.Header = upstreamReq.Headers.Clone()
-		upstreamResp, err := client.Do(httpReq)
-		if err != nil {
-			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
-			return
-		}
-		defer upstreamResp.Body.Close()
-		s.handleStreamingResponse(w, upstreamResp, target.Model.ExposedAlias)
+		defer stream.Close()
+		s.writeStreamingResponse(w, stream, stream.Target.Model.ExposedAlias)
 		return
 	}
-	for i, target := range targets {
-		resp, status, err := s.callTarget(r, normalized, target)
-		if err == nil {
-			s.deps.Health.Set(target.Provider.ID, "ok")
-			writeJSON(w, http.StatusOK, mapNormalizedResponse(resp, target.Model.ExposedAlias))
-			return
-		}
-		if !router.IsRetryableStatus(status) || i == len(targets)-1 {
-			s.deps.Health.Set(target.Provider.ID, "unhealthy")
-			writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
-			return
-		}
-		s.deps.Health.Set(target.Provider.ID, "degraded")
-	}
-}
-
-func (s *Server) callTarget(r *http.Request, req protocol.Request, target router.Target) (protocol.Response, int, error) {
-	adapter := selectAdapter(target.Provider.Type)
-	upstreamReq, err := adapter.BuildRequest(req, target.Provider, target.Model)
+	result, err := s.deps.Executor.Execute(r.Context(), arkruntime.ExecuteRequest{
+		RequestID:    requestID(r),
+		Client:       "claude",
+		Model:        anthropicReq.Model,
+		Requirements: router.Requirements{Streaming: anthropicReq.Stream, Tools: len(anthropicReq.Tools) > 0},
+		Request:      normalized,
+	})
 	if err != nil {
-		return protocol.Response{}, 0, err
+		writeExecutionError(w, err)
+		return
 	}
-	client := &http.Client{Timeout: time.Duration(s.deps.Snapshot.Config.Server.UpstreamTimeoutSeconds) * time.Second}
-	httpReq, err := http.NewRequestWithContext(r.Context(), upstreamReq.Method, upstreamReq.URL, bytes.NewReader(upstreamReq.Body))
-	if err != nil {
-		return protocol.Response{}, 0, err
-	}
-	httpReq.Header = upstreamReq.Headers.Clone()
-	upstreamResp, err := client.Do(httpReq)
-	if err != nil {
-		return protocol.Response{}, 0, err
-	}
-	defer upstreamResp.Body.Close()
-	upstreamBody, _ := io.ReadAll(upstreamResp.Body)
-	if upstreamResp.StatusCode < 200 || upstreamResp.StatusCode >= 300 {
-		return protocol.Response{}, upstreamResp.StatusCode, fmt.Errorf("upstream returned %d", upstreamResp.StatusCode)
-	}
-	mapped, err := adapter.MapResponse(upstreamBody)
-	if err != nil {
-		return protocol.Response{}, 0, err
-	}
-	return mapped, upstreamResp.StatusCode, nil
-}
-
-func (s *Server) handleStreamingResponse(w http.ResponseWriter, upstreamResp *http.Response, model string) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-
-	scanner := bufio.NewScanner(upstreamResp.Body)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	mapper := openaiadapter.NewStreamMapper()
-	for scanner.Scan() {
-		events, err := mapper.MapLine(scanner.Bytes())
-		if err != nil {
-			return
-		}
-		for _, event := range events {
-			writeAnthropicStreamEvent(w, event, model)
-		}
-	}
+	writeJSON(w, http.StatusOK, mapNormalizedResponse(result.Response, result.Target.Model.ExposedAlias))
 }
 
 func (s *Server) handleCountTokens(w http.ResponseWriter, r *http.Request) {
@@ -140,11 +72,34 @@ func (s *Server) handleCountTokens(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, anthropicError("invalid_request_error", "invalid Anthropic request"))
 		return
 	}
-	if _, err := s.deps.Router.Resolve(req.Model, router.Requirements{Tools: len(req.Tools) > 0}); err != nil {
+	if _, err := s.deps.Executor.Router.Plan(req.Model, router.Requirements{Tools: len(req.Tools) > 0}); err != nil {
 		writeJSON(w, http.StatusNotFound, anthropicError("not_found_error", err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"input_tokens": estimateInputTokens(body)})
+}
+
+func requestID(r *http.Request) string {
+	if value := r.Header.Get("x-request-id"); value != "" {
+		return value
+	}
+	return "req_" + strconv.FormatInt(time.Now().UnixNano(), 36)
+}
+
+func writeExecutionError(w http.ResponseWriter, err error) {
+	var execErr *arkruntime.ExecutionError
+	if arkruntime.AsExecutionError(err, &execErr) {
+		status := http.StatusBadGateway
+		if execErr.Class == arkruntime.ErrorRouteNotFound {
+			status = http.StatusNotFound
+		}
+		if execErr.Class == arkruntime.ErrorInvalidRequest || execErr.Class == arkruntime.ErrorUnsupportedCapability {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, anthropicError(string(execErr.Class), execErr.Message))
+		return
+	}
+	writeJSON(w, http.StatusBadGateway, anthropicError("api_error", err.Error()))
 }
 
 func estimateInputTokens(body []byte) int {
@@ -199,16 +154,5 @@ func mapNormalizedResponse(resp protocol.Response, model string) map[string]any 
 			"input_tokens":  resp.Usage.InputTokens,
 			"output_tokens": resp.Usage.OutputTokens,
 		},
-	}
-}
-
-func selectAdapter(providerType string) adapter.ProviderAdapter {
-	switch providerType {
-	case "gemini":
-		return geminiadapter.Adapter{}
-	case "anthropic":
-		return anthropicadapter.Adapter{}
-	default:
-		return openaiadapter.Adapter{}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"bat.dev/arkrouter/internal/protocol"
+	arkruntime "bat.dev/arkrouter/internal/runtime"
 )
 
 func writeSSE(w http.ResponseWriter, event string, payload any) {
@@ -14,6 +15,16 @@ func writeSSE(w http.ResponseWriter, event string, payload any) {
 	fmt.Fprintf(w, "data: %s\n\n", data)
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
+	}
+}
+
+func (s *Server) writeStreamingResponse(w http.ResponseWriter, stream arkruntime.StreamResult, model string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	for event := range stream.Events {
+		writeAnthropicStreamEvent(w, event, model)
 	}
 }
 
