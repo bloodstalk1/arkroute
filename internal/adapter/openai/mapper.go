@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"bat.dev/arkrouter/internal/adapter"
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/failure"
-	"bat.dev/arkrouter/internal/protocol"
-	oai "bat.dev/arkrouter/internal/protocol/openai"
+	"bat.dev/arkroute/internal/adapter"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/failure"
+	"bat.dev/arkroute/internal/protocol"
+	oai "bat.dev/arkroute/internal/protocol/openai"
 )
 
 type Adapter struct{}

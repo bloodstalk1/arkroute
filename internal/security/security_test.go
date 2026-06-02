@@ -12,13 +12,13 @@ func TestRedactSecret(t *testing.T) {
 func TestRedactMap(t *testing.T) {
 	headers := map[string]string{
 		"Authorization":      "Bearer secret",
-		"X-OpenRouter-Title": "Arkrouter",
+		"X-OpenRouter-Title": "Arkroute",
 	}
 	got := RedactMap(headers)
 	if got["Authorization"] != "[redacted]" {
 		t.Fatalf("Authorization = %q, want redacted", got["Authorization"])
 	}
-	if got["X-OpenRouter-Title"] != "Arkrouter" {
+	if got["X-OpenRouter-Title"] != "Arkroute" {
 		t.Fatalf("X-OpenRouter-Title = %q", got["X-OpenRouter-Title"])
 	}
 }

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"bat.dev/arkrouter/internal/failure"
-	"bat.dev/arkrouter/internal/protocol"
-	"bat.dev/arkrouter/internal/router"
+	"bat.dev/arkroute/internal/failure"
+	"bat.dev/arkroute/internal/protocol"
+	"bat.dev/arkroute/internal/router"
 )
 
 type ErrorClass = failure.ErrorClass

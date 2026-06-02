@@ -19,7 +19,7 @@ func TestWriteTraceRedactsSecretsAndIncludesSchema(t *testing.T) {
 		Route:     "sonnet",
 		Provider:  "openrouter",
 		Status:    200,
-		Headers:   map[string]string{"Authorization": "Bearer secret", "X-OpenRouter-Title": "Arkrouter"},
+		Headers:   map[string]string{"Authorization": "Bearer secret", "X-OpenRouter-Title": "Arkroute"},
 	})
 
 	out := buf.String()

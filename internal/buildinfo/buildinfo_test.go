@@ -5,7 +5,7 @@ import "testing"
 
 func TestSummary(t *testing.T) {
 	got := Summary()
-	if !strings.Contains(got, "arkrouter") {
+	if !strings.Contains(got, "arkroute") {
 		t.Fatalf("Summary() = %q", got)
 	}
 }

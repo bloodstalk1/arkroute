@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"bat.dev/arkrouter/internal/cli"
+	"bat.dev/arkroute/internal/cli"
 )
 
 func main() {

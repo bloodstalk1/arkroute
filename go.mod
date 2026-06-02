@@ -1,4 +1,4 @@
-module bat.dev/arkrouter
+module bat.dev/arkroute
 
 go 1.23
 

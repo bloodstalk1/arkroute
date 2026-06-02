@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkroute/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkroute/internal/config"
 )
 
 func TestResolveRouteByAliasAndDiscoveryAlias(t *testing.T) {

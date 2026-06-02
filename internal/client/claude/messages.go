@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"bat.dev/arkrouter/internal/protocol"
-	aproto "bat.dev/arkrouter/internal/protocol/anthropic"
-	"bat.dev/arkrouter/internal/router"
-	arkruntime "bat.dev/arkrouter/internal/runtime"
+	"bat.dev/arkroute/internal/protocol"
+	aproto "bat.dev/arkroute/internal/protocol/anthropic"
+	"bat.dev/arkroute/internal/router"
+	arkruntime "bat.dev/arkroute/internal/runtime"
 )
 
 func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {

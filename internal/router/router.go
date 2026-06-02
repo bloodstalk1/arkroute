@@ -3,7 +3,7 @@ package router
 import (
 	"fmt"
 
-	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkroute/internal/config"
 )
 
 type Requirements struct {

@@ -57,7 +57,7 @@ func MinimalValidConfig(clientKey string) Config {
 			Type:    "openai_compatible",
 			BaseURL: "https://openrouter.ai/api/v1",
 			APIKey:  "env:OPENROUTER_API_KEY",
-			Headers: map[string]string{"X-OpenRouter-Title": "Arkrouter"},
+			Headers: map[string]string{"X-OpenRouter-Title": "Arkroute"},
 			Enabled: true,
 		}},
 		Models: []ModelConfig{{

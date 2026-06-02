@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"bat.dev/arkrouter/internal/adapter/builtin"
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/observability"
-	"bat.dev/arkrouter/internal/router"
-	arkruntime "bat.dev/arkrouter/internal/runtime"
+	"bat.dev/arkroute/internal/adapter/builtin"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/observability"
+	"bat.dev/arkroute/internal/router"
+	arkruntime "bat.dev/arkroute/internal/runtime"
 )
 
 func TestModelsRequiresAuth(t *testing.T) {

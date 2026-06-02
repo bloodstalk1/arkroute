@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"bat.dev/arkrouter/internal/protocol"
+	"bat.dev/arkroute/internal/protocol"
 )
 
 type StreamMapper struct {

@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/security"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/security"
 	"gopkg.in/yaml.v3"
 )
 

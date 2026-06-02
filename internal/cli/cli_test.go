@@ -8,11 +8,11 @@ import (
 
 func TestRunNoArgsPrintsHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter"}, &stdout, &stderr)
+	code := Run([]string{"arkroute"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	if !strings.Contains(stdout.String(), "Usage: arkrouter <command>") {
+	if !strings.Contains(stdout.String(), "Usage: arkroute <command>") {
 		t.Fatalf("stdout missing usage: %q", stdout.String())
 	}
 	if stderr.Len() != 0 {
@@ -22,7 +22,7 @@ func TestRunNoArgsPrintsHelp(t *testing.T) {
 
 func TestRunUnknownCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "missing"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "missing"}, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
@@ -33,11 +33,11 @@ func TestRunUnknownCommand(t *testing.T) {
 
 func TestRunVersion(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "version"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "version"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	if strings.TrimSpace(stdout.String()) != "arkrouter dev" {
+	if strings.TrimSpace(stdout.String()) != "arkroute dev" {
 		t.Fatalf("stdout = %q, want version", stdout.String())
 	}
 }
@@ -45,7 +45,7 @@ func TestRunVersion(t *testing.T) {
 func TestRunActivateClaudePrintsExports(t *testing.T) {
 	t.Setenv("ARKROUTER_CONFIG", "")
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "activate", "claude", "--host", "127.0.0.1", "--port", "20128", "--client-key", "local-key"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "activate", "claude", "--host", "127.0.0.1", "--port", "20128", "--client-key", "local-key"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
 	}
@@ -59,7 +59,7 @@ func TestRunActivateClaudePrintsExports(t *testing.T) {
 
 func TestRunValidateMissingConfig(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "validate", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "validate", "--config", "/path/does/not/exist"}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -70,7 +70,7 @@ func TestRunValidateMissingConfig(t *testing.T) {
 
 func TestRunDoctor(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "doctor", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "doctor", "--config", "/path/does/not/exist"}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -81,7 +81,7 @@ func TestRunDoctor(t *testing.T) {
 
 func TestRunLogsMissingFile(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "logs", "--file", "/path/does/not/exist"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "logs", "--file", "/path/does/not/exist"}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -92,29 +92,29 @@ func TestRunLogsMissingFile(t *testing.T) {
 
 func TestRunTestMissingArgs(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "test"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "test"}, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "usage: arkrouter test <model> <prompt>") {
+	if !strings.Contains(stderr.String(), "usage: arkroute test <model> <prompt>") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
 func TestRunConfigPath(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "config", "path"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "config", "path"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), ".arkrouter") {
+	if !strings.Contains(stdout.String(), ".arkroute") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
 
 func TestRunProviderListMissingConfig(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "provider", "list", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "provider", "list", "--config", "/path/does/not/exist"}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -125,7 +125,7 @@ func TestRunProviderListMissingConfig(t *testing.T) {
 
 func TestRunStatusMissingConfig(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "status", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "status", "--config", "/path/does/not/exist"}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -136,7 +136,7 @@ func TestRunStatusMissingConfig(t *testing.T) {
 
 func TestRunVersionDebug(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkrouter", "version", "--debug"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "version", "--debug"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
 	}

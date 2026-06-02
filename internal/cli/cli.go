@@ -5,9 +5,9 @@ import (
 	"io"
 	"strconv"
 
-	"bat.dev/arkrouter/internal/app"
-	"bat.dev/arkrouter/internal/buildinfo"
-	"bat.dev/arkrouter/internal/config"
+	"bat.dev/arkroute/internal/app"
+	"bat.dev/arkroute/internal/buildinfo"
+	"bat.dev/arkroute/internal/config"
 )
 
 func Run(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -50,7 +50,7 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			app.PrintClaudeActivation(stdout, cfg)
 			return 0
 		}
-		fmt.Fprintln(stderr, "usage: arkrouter activate claude")
+		fmt.Fprintln(stderr, "usage: arkroute activate claude")
 		return 2
 	case "serve":
 		if err := app.Serve(flagValue(args[2:], "--config")); err != nil {
@@ -87,7 +87,7 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runRoute(args[2:], stdout, stderr)
 	case "test":
 		if len(args) < 4 {
-			fmt.Fprintln(stderr, "usage: arkrouter test <model> <prompt>")
+			fmt.Fprintln(stderr, "usage: arkroute test <model> <prompt>")
 			return 2
 		}
 		if err := app.TestRoute(flagValue(args[4:], "--config"), args[2], args[3], stdout); err != nil {
@@ -103,7 +103,7 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprintln(w, "Usage: arkrouter <command> [flags]")
+	fmt.Fprintln(w, "Usage: arkroute <command> [flags]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  init              Create a local config")
@@ -159,7 +159,7 @@ func runConfig(args []string, stdout, stderr io.Writer) int {
 		}
 		return 0
 	}
-	fmt.Fprintf(stderr, "usage: arkrouter config path\n")
+	fmt.Fprintf(stderr, "usage: arkroute config path\n")
 	return 2
 }
 
@@ -171,7 +171,7 @@ func runProvider(args []string, stdout, stderr io.Writer) int {
 		}
 		return 0
 	}
-	fmt.Fprintf(stderr, "usage: arkrouter provider list\n")
+	fmt.Fprintf(stderr, "usage: arkroute provider list\n")
 	return 2
 }
 
@@ -183,7 +183,7 @@ func runModel(args []string, stdout, stderr io.Writer) int {
 		}
 		return 0
 	}
-	fmt.Fprintf(stderr, "usage: arkrouter model list\n")
+	fmt.Fprintf(stderr, "usage: arkroute model list\n")
 	return 2
 }
 
@@ -195,6 +195,6 @@ func runRoute(args []string, stdout, stderr io.Writer) int {
 		}
 		return 0
 	}
-	fmt.Fprintf(stderr, "usage: arkrouter route list\n")
+	fmt.Fprintf(stderr, "usage: arkroute route list\n")
 	return 2
 }

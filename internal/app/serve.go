@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"bat.dev/arkrouter/internal/adapter/builtin"
-	"bat.dev/arkrouter/internal/client/claude"
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/observability"
-	"bat.dev/arkrouter/internal/router"
-	arkruntime "bat.dev/arkrouter/internal/runtime"
+	"bat.dev/arkroute/internal/adapter/builtin"
+	"bat.dev/arkroute/internal/client/claude"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/observability"
+	"bat.dev/arkroute/internal/router"
+	arkruntime "bat.dev/arkroute/internal/runtime"
 )
 
 func Serve(path string) error {
@@ -58,7 +58,7 @@ func Serve(path string) error {
 	go func() {
 		errCh <- srv.ListenAndServe()
 	}()
-	fmt.Printf("arkrouter listening on http://%s\n", addr)
+	fmt.Printf("arkroute listening on http://%s\n", addr)
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	select {

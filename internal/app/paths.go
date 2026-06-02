@@ -11,15 +11,15 @@ func DefaultConfigPath() string {
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".arkrouter/config.yaml"
+		return ".arkroute/config.yaml"
 	}
-	return filepath.Join(home, ".arkrouter", "config.yaml")
+	return filepath.Join(home, ".arkroute", "config.yaml")
 }
 
 func DefaultLogPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".arkrouter/traces.jsonl"
+		return ".arkroute/traces.jsonl"
 	}
-	return filepath.Join(home, ".arkrouter", "traces.jsonl")
+	return filepath.Join(home, ".arkroute", "traces.jsonl")
 }

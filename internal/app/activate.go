@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/security"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/security"
 )
 
 func PrintClaudeActivation(w io.Writer, cfg config.Config) {

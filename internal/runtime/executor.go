@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"bat.dev/arkrouter/internal/adapter"
-	"bat.dev/arkrouter/internal/adapter/builtin"
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/observability"
-	"bat.dev/arkrouter/internal/protocol"
-	"bat.dev/arkrouter/internal/router"
+	"bat.dev/arkroute/internal/adapter"
+	"bat.dev/arkroute/internal/adapter/builtin"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/observability"
+	"bat.dev/arkroute/internal/protocol"
+	"bat.dev/arkroute/internal/router"
 )
 
 type Deps struct {

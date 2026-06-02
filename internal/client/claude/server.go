@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"bat.dev/arkrouter/internal/config"
-	arkruntime "bat.dev/arkrouter/internal/runtime"
+	"bat.dev/arkroute/internal/config"
+	arkruntime "bat.dev/arkroute/internal/runtime"
 )
 
 type Deps struct {

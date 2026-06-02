@@ -3,9 +3,9 @@ package adapter
 import (
 	"net/http"
 
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/failure"
-	"bat.dev/arkrouter/internal/protocol"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/failure"
+	"bat.dev/arkroute/internal/protocol"
 )
 
 type UpstreamRequest struct {

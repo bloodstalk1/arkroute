@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"bat.dev/arkrouter/internal/config"
-	"bat.dev/arkrouter/internal/protocol"
+	"bat.dev/arkroute/internal/config"
+	"bat.dev/arkroute/internal/protocol"
 )
 
 func TestChatCompletionsURL(t *testing.T) {

@@ -12,7 +12,7 @@ var (
 )
 
 func Summary() string {
-	return "arkrouter " + Version
+	return "arkroute " + Version
 }
 
 func Debug() string {
