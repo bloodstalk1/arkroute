@@ -133,3 +133,16 @@ func TestRunStatusMissingConfig(t *testing.T) {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
+
+func TestRunVersionDebug(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "version", "--debug"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	for _, want := range []string{"version:", "commit:", "build_date:", "go:", "os_arch:"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout missing %s: %q", want, stdout.String())
+		}
+	}
+}

@@ -6,10 +6,9 @@ import (
 	"strconv"
 
 	"bat.dev/arkrouter/internal/app"
+	"bat.dev/arkrouter/internal/buildinfo"
 	"bat.dev/arkrouter/internal/config"
 )
-
-const version = "dev"
 
 func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) < 2 {
@@ -19,7 +18,11 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	switch args[1] {
 	case "version":
-		fmt.Fprintf(stdout, "arkrouter %s\n", version)
+		if hasFlag(args[2:], "--debug") {
+			fmt.Fprint(stdout, buildinfo.Debug())
+			return 0
+		}
+		fmt.Fprintln(stdout, buildinfo.Summary())
 		return 0
 	case "help", "-h", "--help":
 		printHelp(stdout)
