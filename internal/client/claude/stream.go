@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"bat.dev/arkroute/internal/protocol"
-	arkruntime "bat.dev/arkroute/internal/runtime"
+	"github.com/bloodstalk1/arkroute/internal/protocol"
+	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
 )
 
 func writeSSE(w http.ResponseWriter, event string, payload any) {

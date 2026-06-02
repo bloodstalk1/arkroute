@@ -5,9 +5,9 @@ import (
 	"io"
 	"strconv"
 
-	"bat.dev/arkroute/internal/app"
-	"bat.dev/arkroute/internal/buildinfo"
-	"bat.dev/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/app"
+	"github.com/bloodstalk1/arkroute/internal/buildinfo"
+	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
 func Run(args []string, stdout io.Writer, stderr io.Writer) int {

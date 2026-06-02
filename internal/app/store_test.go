@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"bat.dev/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

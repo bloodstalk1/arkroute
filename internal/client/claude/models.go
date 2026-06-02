@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sort"
 
-	aproto "bat.dev/arkroute/internal/protocol/anthropic"
+	aproto "github.com/bloodstalk1/arkroute/internal/protocol/anthropic"
 )
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {

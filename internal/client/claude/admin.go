@@ -3,8 +3,8 @@ package claude
 import (
 	"net/http"
 
-	"bat.dev/arkroute/internal/buildinfo"
-	"bat.dev/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/buildinfo"
+	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
 const adminSchemaVersion = 1

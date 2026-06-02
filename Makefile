@@ -4,7 +4,7 @@ BINDIR ?= $(PREFIX)/bin
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS := -X bat.dev/arkroute/internal/buildinfo.Version=$(VERSION) -X bat.dev/arkroute/internal/buildinfo.Commit=$(COMMIT) -X bat.dev/arkroute/internal/buildinfo.BuildDate=$(BUILD_DATE)
+LDFLAGS := -X github.com/bloodstalk1/arkroute/internal/buildinfo.Version=$(VERSION) -X github.com/bloodstalk1/arkroute/internal/buildinfo.Commit=$(COMMIT) -X github.com/bloodstalk1/arkroute/internal/buildinfo.BuildDate=$(BUILD_DATE)
 
 .PHONY: test build install clean
 

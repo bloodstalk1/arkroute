@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"bat.dev/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
 func TestResolveRouteByAliasAndDiscoveryAlias(t *testing.T) {

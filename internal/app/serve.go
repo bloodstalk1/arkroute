@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"bat.dev/arkroute/internal/adapter/builtin"
-	"bat.dev/arkroute/internal/client/claude"
-	"bat.dev/arkroute/internal/config"
-	"bat.dev/arkroute/internal/observability"
-	"bat.dev/arkroute/internal/router"
-	arkruntime "bat.dev/arkroute/internal/runtime"
+	"github.com/bloodstalk1/arkroute/internal/adapter/builtin"
+	"github.com/bloodstalk1/arkroute/internal/client/claude"
+	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/observability"
+	"github.com/bloodstalk1/arkroute/internal/router"
+	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
 )
 
 func Serve(path string) error {

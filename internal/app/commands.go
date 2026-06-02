@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"bat.dev/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
 func ValidateConfig(path string, w io.Writer) error {

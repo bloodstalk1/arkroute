@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"bat.dev/arkroute/internal/cli"
+	"github.com/bloodstalk1/arkroute/internal/cli"
 )
 
 func main() {

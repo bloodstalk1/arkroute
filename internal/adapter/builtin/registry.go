@@ -1,10 +1,10 @@
 package builtin
 
 import (
-	"bat.dev/arkroute/internal/adapter"
-	anthropicadapter "bat.dev/arkroute/internal/adapter/anthropic"
-	geminiadapter "bat.dev/arkroute/internal/adapter/gemini"
-	openaiadapter "bat.dev/arkroute/internal/adapter/openai"
+	"github.com/bloodstalk1/arkroute/internal/adapter"
+	anthropicadapter "github.com/bloodstalk1/arkroute/internal/adapter/anthropic"
+	geminiadapter "github.com/bloodstalk1/arkroute/internal/adapter/gemini"
+	openaiadapter "github.com/bloodstalk1/arkroute/internal/adapter/openai"
 )
 
 func DefaultRegistry() adapter.Registry {

@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"strings"
 
-	"bat.dev/arkroute/internal/adapter"
-	"bat.dev/arkroute/internal/config"
-	"bat.dev/arkroute/internal/failure"
-	"bat.dev/arkroute/internal/protocol"
+	"github.com/bloodstalk1/arkroute/internal/adapter"
+	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/failure"
+	"github.com/bloodstalk1/arkroute/internal/protocol"
 )
 
 type Adapter struct{}

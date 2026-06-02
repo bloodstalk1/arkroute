@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"bat.dev/arkroute/internal/config"
-	"bat.dev/arkroute/internal/security"
+	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/security"
 	"gopkg.in/yaml.v3"
 )
 

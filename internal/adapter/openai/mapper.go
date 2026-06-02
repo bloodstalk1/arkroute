@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"bat.dev/arkroute/internal/adapter"
-	"bat.dev/arkroute/internal/config"
-	"bat.dev/arkroute/internal/failure"
-	"bat.dev/arkroute/internal/protocol"
-	oai "bat.dev/arkroute/internal/protocol/openai"
+	"github.com/bloodstalk1/arkroute/internal/adapter"
+	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/failure"
+	"github.com/bloodstalk1/arkroute/internal/protocol"
+	oai "github.com/bloodstalk1/arkroute/internal/protocol/openai"
 )
 
 type Adapter struct{}

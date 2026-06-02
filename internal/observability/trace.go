@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"bat.dev/arkroute/internal/security"
+	"github.com/bloodstalk1/arkroute/internal/security"
 )
 
 const SchemaVersion = 1

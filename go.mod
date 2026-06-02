@@ -1,4 +1,4 @@
-module bat.dev/arkroute
+module github.com/bloodstalk1/arkroute
 
 go 1.23
 

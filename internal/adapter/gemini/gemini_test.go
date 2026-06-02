@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"bat.dev/arkroute/internal/config"
-	"bat.dev/arkroute/internal/protocol"
+	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/protocol"
 )
 
 func TestBuildRequest(t *testing.T) {
