@@ -15,6 +15,10 @@ func LoadFile(path string) (Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
+	cfg, err = Migrate(cfg)
+	if err != nil {
+		return Config{}, err
+	}
 	ApplyDefaults(&cfg)
 	return cfg, nil
 }

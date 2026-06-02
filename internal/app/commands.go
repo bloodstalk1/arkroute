@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,10 +36,28 @@ func Doctor(path string, w io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(w, "config: ok\nproviders: %d\nmodels: %d\nroutes: %d\n", len(cfg.Providers), len(cfg.Models), len(cfg.Routes))
+	missing := missingEnvRefs(cfg)
+	for _, envName := range missing {
+		fmt.Fprintf(w, "env:%s missing\n", envName)
+	}
+	if portAvailable(cfg.Server.Host, cfg.Server.Port) {
+		fmt.Fprintln(w, "port: available")
+	} else {
+		fmt.Fprintln(w, "port: unavailable")
+	}
+	if serverReachable(cfg) {
+		fmt.Fprintln(w, "server: reachable")
+	} else {
+		fmt.Fprintln(w, "server: unreachable")
+	}
 	return nil
 }
 
 func PrintLogs(path string, w io.Writer) error {
+	return PrintLogsTail(path, 0, w)
+}
+
+func PrintLogsTail(path string, tail int, w io.Writer) error {
 	if path == "" {
 		path = DefaultLogPath()
 	}
@@ -45,8 +65,22 @@ func PrintLogs(path string, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(data)
-	return err
+	lines := strings.SplitAfter(string(data), "\n")
+	compact := lines[:0]
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			compact = append(compact, line)
+		}
+	}
+	if tail > 0 && len(compact) > tail {
+		compact = compact[len(compact)-tail:]
+	}
+	for _, line := range compact {
+		if _, err := io.WriteString(w, line); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func TestRoute(path string, model string, prompt string, w io.Writer) error {
@@ -199,4 +233,36 @@ func pathOrDefault(path string) string {
 		return path
 	}
 	return DefaultConfigPath()
+}
+
+func missingEnvRefs(cfg config.Config) []string {
+	var missing []string
+	for _, provider := range cfg.Providers {
+		if strings.HasPrefix(provider.APIKey, "env:") {
+			name := strings.TrimPrefix(provider.APIKey, "env:")
+			if os.Getenv(name) == "" {
+				missing = append(missing, name)
+			}
+		}
+	}
+	return missing
+}
+
+func portAvailable(host string, port int) bool {
+	ln, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	if err != nil {
+		return false
+	}
+	_ = ln.Close()
+	return true
+}
+
+func serverReachable(cfg config.Config) bool {
+	url := fmt.Sprintf("http://%s:%d/healthz", cfg.Server.Host, cfg.Server.Port)
+	resp, err := (&http.Client{Timeout: 500 * time.Millisecond}).Get(url)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 500
 }

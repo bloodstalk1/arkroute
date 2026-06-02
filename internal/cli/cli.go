@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"bat.dev/arkrouter/internal/app"
 	"bat.dev/arkrouter/internal/config"
@@ -61,7 +62,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		return 0
 	case "logs":
-		if err := app.PrintLogs(flagValue(args[2:], "--file"), stdout); err != nil {
+		tail := intFlagValue(args[2:], "--tail", 0)
+		if err := app.PrintLogsTail(flagValue(args[2:], "--file"), tail, stdout); err != nil {
 			fmt.Fprintf(stderr, "logs failed: %v\n", err)
 			return 1
 		}
@@ -132,6 +134,18 @@ func flagValue(args []string, name string) string {
 		}
 	}
 	return ""
+}
+
+func intFlagValue(args []string, name string, fallback int) int {
+	value := flagValue(args, name)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func runConfig(args []string, stdout, stderr io.Writer) int {
