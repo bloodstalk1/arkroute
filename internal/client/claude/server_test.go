@@ -224,3 +224,30 @@ func TestMessagesFallbackOnRetryableStatus(t *testing.T) {
 		t.Fatalf("body = %s", rec.Body.String())
 	}
 }
+
+func TestInternalStatusRequiresAuth(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/internal/status", nil)
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestInternalConfigRedactsSecrets(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/internal/config", nil)
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"schema_version":1`) {
+		t.Fatalf("missing schema version: %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "local-key") {
+		t.Fatalf("config leaked local key: %s", rec.Body.String())
+	}
+}

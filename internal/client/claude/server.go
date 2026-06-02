@@ -27,6 +27,10 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/v1/models", s.withAuth(s.handleModels))
 	mux.HandleFunc("/v1/messages", s.withAuth(s.handleMessages))
 	mux.HandleFunc("/v1/messages/count_tokens", s.withAuth(s.handleCountTokens))
+	mux.HandleFunc("/internal/status", s.withAuth(s.handleInternalStatus))
+	mux.HandleFunc("/internal/config", s.withAuth(s.handleInternalConfig))
+	mux.HandleFunc("/internal/routes", s.withAuth(s.handleInternalRoutes))
+	mux.HandleFunc("/internal/health", s.withAuth(s.handleInternalHealth))
 	return mux
 }
 

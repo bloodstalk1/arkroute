@@ -100,3 +100,36 @@ func TestRunTestMissingArgs(t *testing.T) {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
+
+func TestRunConfigPath(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "config", "path"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), ".arkrouter") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunProviderListMissingConfig(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "provider", "list", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "provider list failed") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunStatusMissingConfig(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkrouter", "status", "--config", "/path/does/not/exist"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "status failed") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}

@@ -67,11 +67,19 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		return 0
 	case "status":
-		if err := app.Doctor(flagValue(args[2:], "--config"), stdout); err != nil {
+		if err := app.PrintStatus(flagValue(args[2:], "--config"), stdout); err != nil {
 			fmt.Fprintf(stderr, "status failed: %v\n", err)
 			return 1
 		}
 		return 0
+	case "config":
+		return runConfig(args[2:], stdout, stderr)
+	case "provider":
+		return runProvider(args[2:], stdout, stderr)
+	case "model":
+		return runModel(args[2:], stdout, stderr)
+	case "route":
+		return runRoute(args[2:], stdout, stderr)
 	case "test":
 		if len(args) < 4 {
 			fmt.Fprintln(stderr, "usage: arkrouter test <model> <prompt>")
@@ -99,6 +107,10 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  activate claude   Print Claude Code environment exports")
 	fmt.Fprintln(w, "  status            Show route and upstream health")
 	fmt.Fprintln(w, "  doctor            Diagnose local setup")
+	fmt.Fprintln(w, "  config path       Print default config file path")
+	fmt.Fprintln(w, "  provider list     List configured providers")
+	fmt.Fprintln(w, "  model list        List configured models")
+	fmt.Fprintln(w, "  route list        List configured routes")
 	fmt.Fprintln(w, "  test              Test a model route")
 	fmt.Fprintln(w, "  logs              Print JSONL trace logs")
 	fmt.Fprintln(w, "  version           Print version")
@@ -120,4 +132,52 @@ func flagValue(args []string, name string) string {
 		}
 	}
 	return ""
+}
+
+func runConfig(args []string, stdout, stderr io.Writer) int {
+	if len(args) >= 1 && args[0] == "path" {
+		if err := app.ConfigPath(stdout); err != nil {
+			fmt.Fprintf(stderr, "config path failed: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	fmt.Fprintf(stderr, "usage: arkrouter config path\n")
+	return 2
+}
+
+func runProvider(args []string, stdout, stderr io.Writer) int {
+	if len(args) >= 1 && args[0] == "list" {
+		if err := app.ListProviders(flagValue(args[1:], "--config"), stdout); err != nil {
+			fmt.Fprintf(stderr, "provider list failed: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	fmt.Fprintf(stderr, "usage: arkrouter provider list\n")
+	return 2
+}
+
+func runModel(args []string, stdout, stderr io.Writer) int {
+	if len(args) >= 1 && args[0] == "list" {
+		if err := app.ListModels(flagValue(args[1:], "--config"), stdout); err != nil {
+			fmt.Fprintf(stderr, "model list failed: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	fmt.Fprintf(stderr, "usage: arkrouter model list\n")
+	return 2
+}
+
+func runRoute(args []string, stdout, stderr io.Writer) int {
+	if len(args) >= 1 && args[0] == "list" {
+		if err := app.ListRoutes(flagValue(args[1:], "--config"), stdout); err != nil {
+			fmt.Fprintf(stderr, "route list failed: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+	fmt.Fprintf(stderr, "usage: arkrouter route list\n")
+	return 2
 }
