@@ -1,0 +1,19 @@
+{
+  "name": "arkroute-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "npm/arkroute",
+    "npm/platform/*",
+    "web-ui"
+  ],
+  "scripts": {
+    "build:frontend": "make build-frontend",
+    "build:binary": "go build -o dist/arkroute ./cmd/arkroute",
+    "build": "npm run build:frontend && npm run build:binary",
+    "test": "go test ./... && npm test --prefix npm/arkroute",
+    "local-install": "node scripts/install-global.js"
+  }
+}

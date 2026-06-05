@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Arkroute mark</title>
+  <desc id="desc">Transparent terminal portal mark for Arkroute.</desc>
+  <defs>
+    <linearGradient id="signal" x1="106" y1="96" x2="406" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5fff4"/>
+      <stop offset="0.45" stop-color="#7ff45e"/>
+      <stop offset="1" stop-color="#45d9ff"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M74 256H126" stroke="#7ff45e" stroke-width="22"/>
+    <path d="M386 256H438" stroke="#45d9ff" stroke-width="22"/>
+    <path d="M154 116H358C379 116 396 133 396 154V358C396 379 379 396 358 396H154C133 396 116 379 116 358V154C116 133 133 116 154 116Z" stroke="url(#signal)" stroke-width="22"/>
+    <path d="M154 154H358V358H154Z" stroke="url(#signal)" stroke-width="10" opacity="0.28"/>
+    <path d="M182 218L228 256L182 294" stroke="url(#signal)" stroke-width="28"/>
+    <path d="M258 294H330" stroke="url(#signal)" stroke-width="28"/>
+    <path d="M118 256H154M358 256H394" stroke="url(#signal)" stroke-width="22" opacity="0.86"/>
+  </g>
+  <circle cx="74" cy="256" r="13" fill="#7ff45e"/>
+  <circle cx="438" cy="256" r="13" fill="#45d9ff"/>
+</svg>

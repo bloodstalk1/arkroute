@@ -1,0 +1,13 @@
+{
+  "name": "@arkroute/darwin-x64",
+  "version": "0.0.1",
+  "description": "Arkroute native binary for macOS x64",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bloodstalk1/arkroute"
+  },
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin/arkroute", "README.md"]
+}

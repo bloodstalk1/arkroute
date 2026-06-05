@@ -1,0 +1,101 @@
+package panel
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/bloodstalk1/arkroute/internal/config"
+)
+
+func TestRoutesServeSetupHTML(t *testing.T) {
+	handler := Routes(Deps{Sessions: NewSessionStore(time.Minute)})
+	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Arkroute Setup") {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+}
+
+func TestSetupOptionsRequiresSessionToken(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/setup/options", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestSetupOptionsReturnsPresetsWithValidToken(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/setup/options", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "openrouter") {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+}
+
+func TestSetupLaterWritesBootstrapConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	req := httptest.NewRequest(http.MethodPost, "/internal/setup/later", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Providers) != 0 || cfg.Server.ClientKey == "" {
+		t.Fatalf("config = %+v", cfg)
+	}
+}
+
+func TestSetupProviderSavesRedactedConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	body := strings.NewReader(`{"preset_id":"openrouter","api_key_mode":"config","api_key":"sk-secret","upstream_model":"anthropic/claude-sonnet-4.5","exposed_alias":"sonnet-or","route_alias":"sonnet"}`)
+	req := httptest.NewRequest(http.MethodPost, "/internal/setup/provider", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "sk-secret") {
+		t.Fatalf("response leaked provider key: %s", rec.Body.String())
+	}
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Providers[0].APIKey != "sk-secret" {
+		t.Fatalf("stored key = %q", cfg.Providers[0].APIKey)
+	}
+}
+

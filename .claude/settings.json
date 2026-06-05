@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | while read -r f; do case \"$f\" in *.go) pkg=$(dirname \"$f\" | sed \"s|$CLAUDE_PROJECT_DIR/||\"); cd \"$CLAUDE_PROJECT_DIR\" && go test \"./$pkg\" 2>&1 | tail -10;; esac; done || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // \"\"'); if [ -n \"$f\" ] && echo \"$f\" | grep -qE '\\.(env|pem|key|crt)$|/credentials|/secret'; then echo '{\"continue\":false,\"stopReason\":\"Editing credential/sensitive files requires manual review\",\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Credential and sensitive files must be edited manually\"}}'; exit 1; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

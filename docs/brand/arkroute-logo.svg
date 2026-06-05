@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="256" viewBox="0 0 1040 256" role="img" aria-labelledby="title desc">
+  <title id="title">Arkroute logo</title>
+  <desc id="desc">Arkroute horizontal logo lockup with terminal portal mark.</desc>
+  <defs>
+    <linearGradient id="signal" x1="48" y1="40" x2="208" y2="216" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5fff4"/>
+      <stop offset="0.45" stop-color="#7ff45e"/>
+      <stop offset="1" stop-color="#45d9ff"/>
+    </linearGradient>
+    <linearGradient id="word" x1="284" y1="64" x2="760" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5fff4"/>
+      <stop offset="1" stop-color="#d8eee8"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M37 128H63" stroke="#7ff45e" stroke-width="11"/>
+    <path d="M193 128H219" stroke="#45d9ff" stroke-width="11"/>
+    <path d="M77 58H179C190 58 198 66 198 77V179C198 190 190 198 179 198H77C66 198 58 190 58 179V77C58 66 66 58 77 58Z" stroke="url(#signal)" stroke-width="11"/>
+    <path d="M77 77H179V179H77Z" stroke="url(#signal)" stroke-width="5" opacity="0.28"/>
+    <path d="M91 109L114 128L91 147" stroke="url(#signal)" stroke-width="14"/>
+    <path d="M129 147H165" stroke="url(#signal)" stroke-width="14"/>
+    <path d="M59 128H77M179 128H197" stroke="url(#signal)" stroke-width="11" opacity="0.86"/>
+  </g>
+  <circle cx="37" cy="128" r="6.5" fill="#7ff45e"/>
+  <circle cx="219" cy="128" r="6.5" fill="#45d9ff"/>
+  <text x="284" y="144" fill="url(#word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="86" font-weight="760" letter-spacing="0">Arkroute</text>
+  <text x="288" y="187" fill="#7f8b86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" letter-spacing="4">LOCAL AI ROUTER</text>
+</svg>

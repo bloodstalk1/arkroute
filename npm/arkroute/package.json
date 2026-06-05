@@ -1,0 +1,27 @@
+{
+  "name": "arkroute",
+  "version": "0.0.1",
+  "description": "Local AI model router for Claude Code and compatible provider gateways",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bloodstalk1/arkroute"
+  },
+  "type": "module",
+  "bin": {
+    "arkroute": "./bin/arkroute.js"
+  },
+  "optionalDependencies": {
+    "@arkroute/darwin-arm64": "0.0.1",
+    "@arkroute/darwin-x64": "0.0.1",
+    "@arkroute/linux-arm64": "0.0.1",
+    "@arkroute/linux-x64": "0.0.1",
+    "@arkroute/win32-x64": "0.0.1"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
