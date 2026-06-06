@@ -246,7 +246,7 @@ Add focused tests for:
 - Gateway unreachable returns a stable error.
 - Panel route handlers require the same setup-session protection as existing panel endpoints.
 - CLI Tools routes are mounted through both `panel.Routes` and `client/claude.Server.Routes`.
-- The CLI Tools panel renders the Claude Code row and disables Launch when not ready.
+- `npm run build:frontend` succeeds after adding the CLI Tools panel, proving the React view compiles and bundles into embedded panel assets.
 
 Run before completion:
 
@@ -255,7 +255,7 @@ go test -count=1 ./...
 npm run build:frontend
 ```
 
-If frontend tests are added later, include them in the verification command list.
+Frontend render tests are not required in this slice because the repo does not currently have a frontend test runner. If a frontend test runner is added later, cover that the CLI Tools panel renders the Claude Code row and disables Launch when not ready.
 
 ## Future Work
 
