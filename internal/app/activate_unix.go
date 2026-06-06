@@ -11,7 +11,7 @@ import (
 )
 
 func PrintClaudeActivation(w io.Writer, cfg config.Config) {
-	baseURL := fmt.Sprintf("http://%s:%d", cfg.Server.Host, cfg.Server.Port)
+	baseURL := localGatewayBaseURL(cfg)
 	fmt.Fprintf(w, "export ANTHROPIC_BASE_URL=%s\n", security.ShellQuote(baseURL))
 	fmt.Fprintf(w, "export ANTHROPIC_AUTH_TOKEN=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "export ANTHROPIC_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
@@ -33,4 +33,17 @@ func PrintClaudeActivationSettingsWarning(w io.Writer, cfg config.Config, settin
 		fmt.Fprintf(w, " --settings %s", security.ShellQuote(settingsPath))
 	}
 	fmt.Fprintln(w)
+}
+
+func printOpenAIClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintf(w, "export OPENAI_BASE_URL=%s\n", security.ShellQuote(localOpenAIBaseURL(cfg)))
+	fmt.Fprintf(w, "export OPENAI_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
+	fmt.Fprintf(w, "export OPENAI_MODEL=%s\n", security.ShellQuote("sonnet"))
+}
+
+func printDroidClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintf(w, "export OPENAI_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
+	fmt.Fprintf(w, "export ARKROUTE_OPENAI_BASE_URL=%s\n", security.ShellQuote(localOpenAIBaseURL(cfg)))
+	fmt.Fprintf(w, "export ARKROUTE_OPENAI_MODEL=%s\n", security.ShellQuote("sonnet"))
+	fmt.Fprintln(w, "# droidrun run --provider OpenAILike --model \"$ARKROUTE_OPENAI_MODEL\" --api_base \"$ARKROUTE_OPENAI_BASE_URL\" \"Open the settings app\"")
 }

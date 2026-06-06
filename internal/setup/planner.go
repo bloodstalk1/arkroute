@@ -37,6 +37,9 @@ func ApplyProviderSetup(cfg config.Config, input ProviderSetup) (config.Config, 
 	apiKey := providerAPIKey(input.APIKeyMode, input.APIKey, envName)
 
 	modelID := providerID + "-" + normalizeID(exposedAlias)
+	if providerID == "opencode-zen" {
+		modelID = normalizeID(exposedAlias)
+	}
 	cfg.Providers = []config.ProviderConfig{{
 		ID: providerID, Name: providerName, Type: providerType, BaseURL: baseURL,
 		APIKey: apiKey, Headers: cloneStringMap(preset.Headers), Enabled: true,

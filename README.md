@@ -151,6 +151,44 @@ arkroute activate claude --write-settings --settings /path/to/settings.json
 claude --settings /path/to/settings.json
 ```
 
+Use OpenCode or OpenAI-compatible Codex sessions through Arkroute:
+
+```sh
+eval "$(arkroute activate opencode)"
+opencode
+```
+
+```sh
+eval "$(arkroute activate codex)"
+codex
+```
+
+Use DroidRun with its OpenAILike provider:
+
+```sh
+eval "$(arkroute activate droid)"
+droidrun run --provider OpenAILike --model "$ARKROUTE_OPENAI_MODEL" --api_base "$ARKROUTE_OPENAI_BASE_URL" "Open the settings app"
+```
+
+All OpenAI-compatible profiles use Arkroute's local `/v1` gateway and the local `server.client_key`, not an upstream provider API key.
+
+The OpenAI-compatible surface currently supports:
+
+- `GET /v1/models`
+- `POST /v1/chat/completions`
+- `POST /v1/responses`
+- non-streaming and streaming text chat
+- non-streaming and streaming Responses text generation
+- function tools and tool results
+- `system`, `developer`, `user`, `assistant`, and `tool` roles
+- `max_tokens`, `max_completion_tokens`, `temperature`, `stream`, and `reasoning_effort`
+- Responses `input` as a string or message item list
+- Responses `instructions`, `max_output_tokens`, `temperature`, `stream`, function tools, and simple `output_text`
+
+Unsupported OpenAI fields such as Chat `n > 1`, hosted tools, audio output, logprobs, Responses `previous_response_id`, Responses `store: true`, and Responses `include` return OpenAI-style JSON errors instead of Anthropic errors.
+
+See [OpenAI Compatibility](docs/openai-compatibility.md) for the endpoint matrix, client setup notes, supported fields, and unsupported feature behavior.
+
 Check status and routing:
 
 ```sh
@@ -194,7 +232,9 @@ npm run local-install
 
 This builds the frontend, compiles the Go binary for your platform, and registers the CLI via `npm install -g` with no manual PATH changes.
 
-## OpenCode Go And Auto Protocol Detection
+## OpenCode Zen, OpenCode Go, And Protocol Detection
+
+OpenCode Zen is available as a setup preset with `base_url: https://opencode.ai/zen/v1`, `type: openai_compatible`, and default model `kimi-k2.6`. Zen contains mixed endpoint families; this preset intentionally starts with a known OpenAI-compatible path through `/chat/completions`.
 
 `providers[].type` is optional. When it is omitted or set to `auto`, Arkroute resolves the upstream protocol from the provider catalog, model name, and endpoint shape.
 

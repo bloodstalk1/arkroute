@@ -39,6 +39,9 @@ const PROVIDER_MODELS = {
     { value: "qwen3.7-max", label: "Qwen 3.7 Max (Recommended)" },
     { value: "deepseek-v3", label: "DeepSeek V3" },
     { value: "deepseek-r1", label: "DeepSeek R1" }
+  ],
+  "opencode-zen": [
+    { value: "kimi-k2.6", label: "Kimi K2.6 (Recommended)" }
   ]
 };
 
@@ -74,6 +77,7 @@ function envNameForProvider(id) {
     case "openai-compatible":
       return "OPENAI_API_KEY";
     case "opencode-go":
+    case "opencode-zen":
       return "OPENCODE_API_KEY";
     default:
       return "";
@@ -362,7 +366,7 @@ function App() {
     const activePreset = presets.find((p) => p.id === form.preset_id);
     if (activePreset) list.add(activePreset.name);
     presets.forEach((p) => list.add(p.name));
-    ["OpenRouter", "Anthropic", "Gemini", "OpenAI-compatible", "OpenCode Go", "Custom"].forEach((name) => list.add(name));
+    ["OpenRouter", "Anthropic", "Gemini", "OpenAI-compatible", "OpenCode Go", "OpenCode Zen", "Custom"].forEach((name) => list.add(name));
     return Array.from(list);
   }, [form.preset_id, presets]);
 
@@ -376,7 +380,8 @@ function App() {
       "https://api.anthropic.com",
       "https://generativelanguage.googleapis.com/v1beta",
       "https://api.openai.com/v1",
-      "https://opencode.ai/zen/go"
+      "https://opencode.ai/zen/go",
+      "https://opencode.ai/zen/v1"
     ].forEach((url) => list.add(url));
     return Array.from(list);
   }, [form.preset_id, presets]);

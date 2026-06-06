@@ -28,6 +28,12 @@ func TestApplyProviderSetupStoresEnvReference(t *testing.T) {
 	if out.Models[0].ProviderID != "openrouter" || out.Routes[0].Alias != "sonnet" {
 		t.Fatalf("unexpected config: %+v", out)
 	}
+	if out.Models[0].ID != "openrouter-sonnet-or" {
+		t.Fatalf("unexpected model ID = %q, want openrouter-sonnet-or", out.Models[0].ID)
+	}
+	if out.Routes[0].Targets[0].ModelID != "openrouter-sonnet-or" {
+		t.Fatalf("unexpected target model ID = %q, want openrouter-sonnet-or", out.Routes[0].Targets[0].ModelID)
+	}
 	if err := out.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
@@ -58,5 +64,41 @@ func TestApplyProviderSetupRejectsUnknownPreset(t *testing.T) {
 	_, err := ApplyProviderSetup(config.BootstrapLocalConfig("local-key"), ProviderSetup{PresetID: "missing"})
 	if err == nil || !strings.Contains(err.Error(), "unknown preset") {
 		t.Fatalf("error = %v, want unknown preset", err)
+	}
+}
+
+func TestApplyProviderSetupBuildsOpenCodeZenConfig(t *testing.T) {
+	cfg := config.BootstrapLocalConfig("local-key")
+	out, err := ApplyProviderSetup(cfg, ProviderSetup{
+		PresetID:      "opencode-zen",
+		APIKeyMode:    APIKeyModeEnv,
+		EnvName:       "OPENCODE_API_KEY",
+		UpstreamModel: "kimi-k2.6",
+		ExposedAlias:  "opencode-zen-kimi",
+		RouteAlias:    "sonnet",
+	})
+	if err != nil {
+		t.Fatalf("ApplyProviderSetup() error = %v", err)
+	}
+	if out.Providers[0].ID != "opencode-zen" {
+		t.Fatalf("provider ID = %q", out.Providers[0].ID)
+	}
+	if out.Providers[0].Type != "openai_compatible" {
+		t.Fatalf("provider type = %q", out.Providers[0].Type)
+	}
+	if out.Providers[0].BaseURL != "https://opencode.ai/zen/v1" {
+		t.Fatalf("provider base URL = %q", out.Providers[0].BaseURL)
+	}
+	if out.Providers[0].APIKey != "env:OPENCODE_API_KEY" {
+		t.Fatalf("provider API key = %q", out.Providers[0].APIKey)
+	}
+	if out.Models[0].UpstreamModel != "kimi-k2.6" || out.Models[0].ExposedAlias != "opencode-zen-kimi" {
+		t.Fatalf("unexpected model config: %+v", out.Models[0])
+	}
+	if out.Routes[0].Alias != "sonnet" || out.Routes[0].Targets[0].ModelID != "opencode-zen-kimi" {
+		t.Fatalf("unexpected route config: %+v", out.Routes[0])
+	}
+	if err := out.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
 	}
 }

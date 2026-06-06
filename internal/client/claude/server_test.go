@@ -48,6 +48,22 @@ func TestModelsReturnsRouteAliases(t *testing.T) {
 	}
 }
 
+func TestModelsIncludesOpenAICompatibleListFields(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"object":"list"`, `"object":"model"`, `"owned_by":"arkroute"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("models response missing OpenAI-compatible field %s: %s", want, rec.Body.String())
+		}
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	srv := testServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -90,6 +106,58 @@ func TestMessagesNonStreamingOpenAICompatible(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"text":"pong"`) {
 		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestOpenAIChatCompletionsMountedOnGateway(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"chatcmpl_test","choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2}}`))
+	}))
+	defer upstream.Close()
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].BaseURL = upstream.URL + "/api/v1"
+	cfg.Providers[0].APIKey = "sk-test"
+	path := writeClaudeServerConfig(t, cfg)
+	state := testStateFromPath(t, path, cfg.Server.Host, cfg.Server.Port)
+	srv := NewServer(Deps{State: state})
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"sonnet","max_tokens":128,"messages":[{"role":"user","content":"ping"}]}`))
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) || !strings.Contains(rec.Body.String(), `"content":"pong"`) {
+		t.Fatalf("OpenAI chat response = %s", rec.Body.String())
+	}
+}
+
+func TestOpenAIResponsesMountedOnGateway(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"chatcmpl_test","choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2}}`))
+	}))
+	defer upstream.Close()
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].BaseURL = upstream.URL + "/api/v1"
+	cfg.Providers[0].APIKey = "sk-test"
+	path := writeClaudeServerConfig(t, cfg)
+	state := testStateFromPath(t, path, cfg.Server.Host, cfg.Server.Port)
+	srv := NewServer(Deps{State: state})
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"sonnet","input":"ping"}`))
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"object":"response"`) || !strings.Contains(rec.Body.String(), `"output_text":"pong"`) {
+		t.Fatalf("OpenAI responses response = %s", rec.Body.String())
 	}
 }
 

@@ -3,18 +3,29 @@ package openai
 import "encoding/json"
 
 type ChatRequest struct {
-	Model           string          `json:"model"`
-	Messages        []Message       `json:"messages"`
-	Tools           []Tool          `json:"tools,omitempty"`
-	ToolChoice      any             `json:"tool_choice,omitempty"`
-	MaxTokens       int             `json:"max_tokens,omitempty"`
-	Temperature     *float64        `json:"temperature,omitempty"`
-	Stream          bool            `json:"stream,omitempty"`
-	Thinking        *ThinkingConfig `json:"thinking,omitempty"`
-	ReasoningEffort string          `json:"reasoning_effort,omitempty"`
+	Model               string          `json:"model"`
+	Messages            []Message       `json:"messages"`
+	Tools               []Tool          `json:"tools,omitempty"`
+	ToolChoice          any             `json:"tool_choice,omitempty"`
+	ResponseFormat      *ResponseFormat `json:"response_format,omitempty"`
+	MaxTokens           int             `json:"max_tokens,omitempty"`
+	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
+	Temperature         *float64        `json:"temperature,omitempty"`
+	Stream              bool            `json:"stream,omitempty"`
+	N                   int             `json:"n,omitempty"`
+	Logprobs            *bool           `json:"logprobs,omitempty"`
+	TopLogprobs         *int            `json:"top_logprobs,omitempty"`
+	Modalities          []string        `json:"modalities,omitempty"`
+	Audio               any             `json:"audio,omitempty"`
+	Thinking            *ThinkingConfig `json:"thinking,omitempty"`
+	ReasoningEffort     string          `json:"reasoning_effort,omitempty"`
 }
 
 type ThinkingConfig struct {
+	Type string `json:"type"`
+}
+
+type ResponseFormat struct {
 	Type string `json:"type"`
 }
 

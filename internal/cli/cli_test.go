@@ -62,7 +62,7 @@ func TestRunActivateClaudePrintsExports(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"arkroute", "activate", "claude", "--config", path, "--host", "127.0.0.1", "--port", "20128", "--client-key", "local-key"}, &stdout, &stderr)
+	code := Run([]string{"arkroute", "activate", "claude", "--config", path, "--client-key", "local-key"}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
 	}
@@ -146,6 +146,109 @@ func TestRunActivateClaudeWarnsAboutMismatchedSettings(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("activate output missing %q: %q", want, got)
 		}
+	}
+}
+
+func writeActivationConfig(t *testing.T, cfg config.Config) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestRunActivateOpenAICompatibleProfilesPrintExports(t *testing.T) {
+	t.Setenv("ARKROUTER_CONFIG", "")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Server.Port = 20128
+	path := writeActivationConfig(t, cfg)
+
+	for _, profile := range []string{"opencode", "codex"} {
+		t.Run(profile, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := Run([]string{"arkroute", "activate", profile, "--config", path}, &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+			}
+			out := stdout.String()
+			for _, want := range []string{"OPENAI_BASE_URL", "http://127.0.0.1:20128/v1", "OPENAI_API_KEY", "local-key", "OPENAI_MODEL", "sonnet"} {
+				if !strings.Contains(out, want) {
+					t.Fatalf("activate %s output missing %q: %q", profile, want, out)
+				}
+			}
+		})
+	}
+}
+
+func TestRunActivateDroidPrintsDroidRunGuidance(t *testing.T) {
+	t.Setenv("ARKROUTER_CONFIG", "")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Server.Port = 20128
+	path := writeActivationConfig(t, cfg)
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkroute", "activate", "droid", "--config", path}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	out := stdout.String()
+	for _, want := range []string{"OPENAI_API_KEY", "ARKROUTE_OPENAI_BASE_URL", "http://127.0.0.1:20128/v1", "ARKROUTE_OPENAI_MODEL", "--provider OpenAILike", "--api_base"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("activate droid output missing %q: %q", want, out)
+		}
+	}
+}
+
+func TestRunActivateUnknownProfile(t *testing.T) {
+	t.Setenv("ARKROUTER_CONFIG", "")
+	cfg := config.MinimalValidConfig("local-key")
+	path := writeActivationConfig(t, cfg)
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkroute", "activate", "missing", "--config", path}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "unknown client profile") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunActivateRejectsUnsafeHost(t *testing.T) {
+	t.Setenv("ARKROUTER_CONFIG", "")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Server.Host = "0.0.0.0"
+	path := writeActivationConfig(t, cfg)
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkroute", "activate", "opencode", "--config", path}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "server.host must be loopback") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunActivateRejectsMissingClientKey(t *testing.T) {
+	t.Setenv("ARKROUTER_CONFIG", "")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Server.ClientKey = ""
+	path := writeActivationConfig(t, cfg)
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"arkroute", "activate", "codex", "--config", path}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "server.client_key is required") {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 

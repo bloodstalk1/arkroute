@@ -10,7 +10,7 @@ import (
 )
 
 func PrintClaudeActivation(w io.Writer, cfg config.Config) {
-	baseURL := fmt.Sprintf("http://%s:%d", cfg.Server.Host, cfg.Server.Port)
+	baseURL := localGatewayBaseURL(cfg)
 	fmt.Fprintf(w, "set ANTHROPIC_BASE_URL=%s\n", baseURL)
 	fmt.Fprintf(w, "set ANTHROPIC_AUTH_TOKEN=%s\n", cfg.Server.ClientKey)
 	fmt.Fprintf(w, "set ANTHROPIC_API_KEY=%s\n", cfg.Server.ClientKey)
@@ -32,4 +32,17 @@ func PrintClaudeActivationSettingsWarning(w io.Writer, cfg config.Config, settin
 		fmt.Fprintf(w, " --settings %s", settingsPath)
 	}
 	fmt.Fprintln(w)
+}
+
+func printOpenAIClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintf(w, "set OPENAI_BASE_URL=%s\n", localOpenAIBaseURL(cfg))
+	fmt.Fprintf(w, "set OPENAI_API_KEY=%s\n", cfg.Server.ClientKey)
+	fmt.Fprintf(w, "set OPENAI_MODEL=sonnet\n")
+}
+
+func printDroidClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintf(w, "set OPENAI_API_KEY=%s\n", cfg.Server.ClientKey)
+	fmt.Fprintf(w, "set ARKROUTE_OPENAI_BASE_URL=%s\n", localOpenAIBaseURL(cfg))
+	fmt.Fprintf(w, "set ARKROUTE_OPENAI_MODEL=sonnet\n")
+	fmt.Fprintln(w, "REM droidrun run --provider OpenAILike --model \"%ARKROUTE_OPENAI_MODEL%\" --api_base \"%ARKROUTE_OPENAI_BASE_URL%\" \"Open the settings app\"")
 }

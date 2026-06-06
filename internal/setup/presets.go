@@ -59,6 +59,12 @@ func Presets() []ProviderPreset {
 			Capabilities: defaultClaudeCapabilities(),
 		},
 		{
+			ID: "opencode-zen", Name: "OpenCode Zen", Type: "openai_compatible",
+			BaseURL: "https://opencode.ai/zen/v1", DefaultModel: "kimi-k2.6",
+			DefaultAlias: "opencode-zen-kimi", DefaultRoute: "sonnet", DiscoveryAlias: "claude-sonnet-4-20250514",
+			Capabilities: defaultClaudeCapabilities(),
+		},
+		{
 			ID: "custom", Name: "Custom", Type: "auto",
 			BaseURL: "https://example.com/v1", DefaultModel: "provider/model",
 			DefaultAlias: "custom-model", DefaultRoute: "sonnet", DiscoveryAlias: "claude-sonnet-4-20250514",

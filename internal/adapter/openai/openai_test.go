@@ -15,10 +15,12 @@ import (
 
 func TestChatCompletionsURL(t *testing.T) {
 	tests := map[string]string{
-		"https://openrouter.ai/api/v1": "https://openrouter.ai/api/v1/chat/completions",
-		"https://example.test":         "https://example.test/v1/chat/completions",
-		"https://example.test/v1/":     "https://example.test/v1/chat/completions",
-		"https://opencode.ai/zen/go":   "https://opencode.ai/zen/go/v1/chat/completions",
+		"https://openrouter.ai/api/v1":  "https://openrouter.ai/api/v1/chat/completions",
+		"https://example.test":          "https://example.test/v1/chat/completions",
+		"https://example.test/v1/":      "https://example.test/v1/chat/completions",
+		"https://opencode.ai/zen/v1":    "https://opencode.ai/zen/v1/chat/completions",
+		"https://opencode.ai/zen/go":    "https://opencode.ai/zen/go/v1/chat/completions",
+		"https://opencode.ai/zen/go/v1": "https://opencode.ai/zen/go/v1/chat/completions",
 	}
 	for baseURL, want := range tests {
 		got, err := ChatCompletionsURL(baseURL)

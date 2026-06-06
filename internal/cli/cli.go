@@ -60,34 +60,7 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		return 0
 	case "activate":
-		if len(args) >= 3 && args[2] == "claude" {
-			path := flagValue(args[3:], "--config")
-			if path == "" {
-				path = app.DefaultConfigPath()
-			}
-			cfg, err := config.LoadFile(path)
-			if err != nil {
-				fmt.Fprintf(stderr, "activate failed: %v\n", err)
-				return 1
-			}
-			if key := flagValue(args[3:], "--client-key"); key != "" {
-				cfg.Server.ClientKey = key
-			}
-			settingsPath := flagValue(args[3:], "--settings")
-			if hasFlag(args[3:], "--write-settings") {
-				if err := app.WriteClaudeSettings(settingsPath, cfg); err != nil {
-					fmt.Fprintf(stderr, "activate failed: %v\n", err)
-					return 1
-				}
-				fmt.Fprintf(stdout, "updated Claude settings: %s\n", app.ClaudeSettingsPath(settingsPath))
-				return 0
-			}
-			app.PrintClaudeActivation(stdout, cfg)
-			app.PrintClaudeActivationSettingsWarning(stdout, cfg, settingsPath)
-			return 0
-		}
-		fmt.Fprintln(stderr, "usage: arkroute activate claude")
-		return 2
+		return runActivate(args[2:], stdout, stderr)
 	case "serve":
 		if err := app.Serve(flagValue(args[2:], "--config")); err != nil {
 			fmt.Fprintf(stderr, "serve failed: %v\n", err)
@@ -191,7 +164,7 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  init              Create a local config")
 	fmt.Fprintln(w, "  validate          Validate config")
 	fmt.Fprintln(w, "  serve             Start the local Claude Code gateway")
-	fmt.Fprintln(w, "  activate claude   Print Claude Code environment exports or write Claude settings")
+	fmt.Fprintln(w, "  activate          Print client environment exports for claude, opencode, codex, or droid")
 	fmt.Fprintln(w, "  status            Show route and upstream health")
 	fmt.Fprintln(w, "  reload            Reload running server config")
 	fmt.Fprintln(w, "  doctor            Diagnose local setup")
@@ -235,6 +208,52 @@ func intFlagValue(args []string, name string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func runActivate(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		fmt.Fprintln(stderr, "usage: arkroute activate PROFILE")
+		return 2
+	}
+	profile := strings.ToLower(strings.TrimSpace(args[0]))
+	flags := args[1:]
+	path := flagValue(flags, "--config")
+	if path == "" {
+		path = app.DefaultConfigPath()
+	}
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		fmt.Fprintf(stderr, "activate failed: %v\n", err)
+		return 1
+	}
+	if key := flagValue(flags, "--client-key"); key != "" {
+		cfg.Server.ClientKey = key
+	}
+	settingsPath := flagValue(flags, "--settings")
+	if hasFlag(flags, "--write-settings") {
+		if profile != app.ClientProfileClaude {
+			fmt.Fprintln(stderr, "activate failed: --write-settings is only supported for claude")
+			return 1
+		}
+		if err := app.WriteClaudeSettings(settingsPath, cfg); err != nil {
+			fmt.Fprintf(stderr, "activate failed: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "updated Claude settings: %s\n", app.ClaudeSettingsPath(settingsPath))
+		return 0
+	}
+	if err := app.PrintClientActivation(stdout, cfg, profile); err != nil {
+		if strings.Contains(err.Error(), "unknown client profile") {
+			fmt.Fprintf(stderr, "activate failed: %v\n", err)
+			return 2
+		}
+		fmt.Fprintf(stderr, "activate failed: %v\n", err)
+		return 1
+	}
+	if profile == app.ClientProfileClaude {
+		app.PrintClaudeActivationSettingsWarning(stdout, cfg, settingsPath)
+	}
+	return 0
 }
 
 func runConfig(args []string, stdout, stderr io.Writer) int {
