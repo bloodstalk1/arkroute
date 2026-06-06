@@ -953,3 +953,31 @@ func TestPanelSetupLaterTriggersReload(t *testing.T) {
 		t.Fatalf("expected state generation to be 2, got %d", gen)
 	}
 }
+
+func TestCLIToolsMountedOnGatewayWithSetupSession(t *testing.T) {
+	srv := testServer(t)
+	sessionReq := httptest.NewRequest(http.MethodPost, "/internal/setup/session", nil)
+	sessionReq.Header.Set("Authorization", "Bearer local-key")
+	sessionRec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(sessionRec, sessionReq)
+	if sessionRec.Code != http.StatusOK {
+		t.Fatalf("session status = %d, body = %s", sessionRec.Code, sessionRec.Body.String())
+	}
+	var sessionPayload struct {
+		SetupToken string `json:"setup_token"`
+	}
+	if err := json.Unmarshal(sessionRec.Body.Bytes(), &sessionPayload); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-tools", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", sessionPayload.SetupToken)
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"id":"claude"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+

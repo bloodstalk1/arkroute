@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bloodstalk1/arkroute/internal/clitools"
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/panel"
 	"github.com/bloodstalk1/arkroute/internal/security"
@@ -203,6 +204,7 @@ func runTemporaryPanelServer(path string, host string, port int, store *panel.Se
 		Sessions:             store,
 		ConfigPath:           path,
 		ClaudeSettingsWriter: claudeWriter,
+		CLITools:             clitools.NewService(path, false),
 	})
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	return http.ListenAndServe(addr, handler)

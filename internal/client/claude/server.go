@@ -8,6 +8,7 @@ import (
 	"time"
 
 	openaiclient "github.com/bloodstalk1/arkroute/internal/client/openai"
+	"github.com/bloodstalk1/arkroute/internal/clitools"
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/panel"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
@@ -47,6 +48,7 @@ func (s *Server) Routes() http.Handler {
 		Sessions:             s.sessions,
 		ConfigPath:           s.configPath,
 		ClaudeSettingsWriter: s.deps.ClaudeSettingsWriter,
+		CLITools:             clitools.NewService(s.configPath, true),
 		OnSave: func() error {
 			if s.deps.State != nil {
 				result := s.deps.State.Reload(context.Background(), arkruntime.ReloadSourceAdmin, "panel_save")
@@ -65,6 +67,8 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("/internal/setup/later", panelHandler)
 	mux.Handle("/internal/setup/status", panelHandler)
 	mux.Handle("/internal/setup/logs", panelHandler)
+	mux.Handle("/internal/cli-tools", panelHandler)
+	mux.Handle("/internal/cli-tools/claude/launch", panelHandler)
 	mux.HandleFunc("/internal/setup/session", s.withAuth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)
