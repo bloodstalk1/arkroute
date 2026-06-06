@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bloodstalk1/arkroute/internal/clitools"
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
@@ -98,4 +99,57 @@ func TestSetupProviderSavesRedactedConfig(t *testing.T) {
 		t.Fatalf("stored key = %q", cfg.Providers[0].APIKey)
 	}
 }
+
+func TestCLIToolsRequiresSessionToken(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-tools", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestCLIToolsReturnsStatusWithValidToken(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{
+		Sessions:   store,
+		ConfigPath: path,
+		CLITools:   clitools.NewService(path, false),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-tools", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"schema_version":1`, `"id":"claude"`, `"activation_command"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("body missing %s: %s", want, rec.Body.String())
+		}
+	}
+}
+
+func TestCLIToolsLaunchMethodRequiresPost(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-tools/claude/launch", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
 

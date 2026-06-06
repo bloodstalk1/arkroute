@@ -24,6 +24,7 @@ type Deps struct {
 	ConfigPath           string
 	ClaudeSettingsWriter func(cfg config.Config) error
 	OnSave               func() error
+	CLITools             CLIToolsService
 }
 
 func Routes(deps Deps) http.Handler {
@@ -39,6 +40,8 @@ func Routes(deps Deps) http.Handler {
 	mux.HandleFunc("/internal/setup/later", withSetupToken(deps.Sessions, handleLater(deps.ConfigPath, deps.OnSave)))
 	mux.HandleFunc("/internal/setup/status", withSetupToken(deps.Sessions, handleGetStatus(deps.ConfigPath)))
 	mux.HandleFunc("/internal/setup/logs", withSetupToken(deps.Sessions, handleGetLogs()))
+	mux.HandleFunc("/internal/cli-tools", withSetupToken(deps.Sessions, handleCLIToolsStatus(deps.CLITools)))
+	mux.HandleFunc("/internal/cli-tools/claude/launch", withSetupToken(deps.Sessions, handleClaudeLaunch(deps.CLITools)))
 	return mux
 }
 
