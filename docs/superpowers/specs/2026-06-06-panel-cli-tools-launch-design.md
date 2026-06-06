@@ -1,7 +1,7 @@
 # Arkroute Panel CLI Tools Launch Design
 
 Date: 2026-06-06
-Status: Ready for user review
+Status: Ready for implementation-plan review
 
 ## Goal
 
@@ -79,10 +79,12 @@ Claude Code row:
   - Gateway reachable or unreachable.
   - Model discovery enabled.
   - Active base URL.
-- Primary action: `Launch`
-- Secondary action: `Copy Env`
+- Primary action when supported: `Launch`
+- Fallback action: `Copy Env`
 
 `Launch` starts Claude Code through Arkroute. `Copy Env` shows or copies the existing activation snippet as a fallback for users who prefer launching manually from a terminal.
+
+`Launch` must not be shown as available unless the backend reports that launching an interactive child process is usable in the current Arkroute process. In particular, a browser click cannot create an interactive terminal by itself. If Arkroute is running without a usable terminal, the panel should keep the preflight/status experience but make `Copy Env` the available action.
 
 The UI should not expose upstream provider API keys. Showing the local loopback URL and local Arkroute client key in copyable env output is acceptable because those are required for local client activation.
 
@@ -109,6 +111,13 @@ POST /internal/cli-tools/claude/launch
 
 Both endpoints are local admin endpoints and must require the same bearer auth or setup session protection pattern used by existing internal panel APIs. The implementation should reuse existing auth/session conventions instead of introducing a second auth scheme.
 
+The implementation must mount these endpoints in the same path family used by the React panel:
+
+- Add handlers to `internal/panel.Routes` so temporary panel tests and panel-local behavior are covered.
+- Mount those paths from `internal/client/claude.Server.Routes`, the same way `/internal/setup/options`, `/internal/setup/status`, and related panel endpoints are mounted today.
+
+The React panel currently authenticates panel requests with `X-Arkroute-Setup-Token`, not `Authorization`. CLI Tools endpoints used by the panel should follow that setup-session token path. The existing `/internal/setup/session` bearer-auth endpoint remains the way a running gateway issues the short-lived token to the panel.
+
 `GET /internal/cli-tools` returns:
 
 ```json
@@ -122,7 +131,10 @@ Both endpoints are local admin endpoints and must require the same bearer auth o
       "installed": true,
       "gateway_reachable": true,
       "base_url": "http://127.0.0.1:20128",
-      "model_discovery": true
+      "model_discovery": true,
+      "launch_supported": true,
+      "launch_blocked_reason": "",
+      "activation_command": "eval \"$(arkroute activate claude)\""
     }
   ]
 }
@@ -143,6 +155,7 @@ If launch fails, it returns a stable JSON error message with a helpful remediati
 
 - gateway unreachable: start `arkroute serve`
 - missing binary: install Claude Code
+- interactive launch unsupported: copy the activation command and run Claude Code in a terminal
 - invalid config: run `arkroute setup`
 - spawn failure: use `Copy Env` and launch manually
 
@@ -175,11 +188,18 @@ Implementation behavior:
 
 1. Validate config and gateway reachability.
 2. Resolve `claude` with `exec.LookPath`.
-3. Build sanitized env.
-4. Start the process.
-5. Return `pid` and command metadata.
+3. Verify that interactive launch is supported in this Arkroute process.
+4. Build sanitized env.
+5. Start the process.
+6. Return `pid` and command metadata.
 
-The process should inherit standard IO only where safe for a panel-launched process. If a browser-launched backend has no useful terminal attached, redirect stdin/stdout/stderr to the parent process defaults or OS null devices in a way that does not hang the server. The implementation should prefer the simplest cross-platform behavior that keeps Arkroute stable.
+Interactive launch support is intentionally strict in the first slice:
+
+- The panel must be hosted by the running gateway, not only by a temporary setup server.
+- Arkroute must have usable standard input, output, and error streams for a child CLI.
+- If those conditions are not met, `POST /internal/cli-tools/claude/launch` must not spawn `claude`; it should return a stable unsupported-launch error and the panel should direct the user to `Copy Env`.
+
+When launch is supported, the child process should inherit the Arkroute process standard IO so Claude Code remains interactive in the same terminal. Do not redirect Claude Code to null devices; that would make a successful launch unusable.
 
 Stopping or supervising the Claude child process is future work. This slice only launches it.
 
@@ -191,9 +211,10 @@ Claude Code should show clear states:
 - `Gateway offline`: config is valid but gateway preflight failed.
 - `Not installed`: `claude` is not found on PATH.
 - `Config issue`: config cannot be loaded or local key is missing.
+- `Launch unavailable`: gateway and config are valid, but this Arkroute process cannot host an interactive CLI child.
 - `Launched`: process start succeeded and a pid is available.
 
-The `Launch` button is enabled only when the row is ready. `Copy Env` remains available when config can be loaded, even if `claude` is not installed.
+The `Launch` button is enabled only when the row is ready and `launch_supported` is true. `Copy Env` remains available when config can be loaded, even if `claude` is not installed or interactive launch is unavailable.
 
 ## Error Handling
 
@@ -205,6 +226,7 @@ Fail clearly when:
 - `server.client_key` is empty.
 - Gateway preflight fails.
 - Claude Code binary cannot be found.
+- Interactive launch is unavailable.
 - Process spawn fails.
 
 Errors returned to the panel must not include upstream provider API keys. Local client keys may be present only in explicit copy-env output, not in generic error text.
@@ -218,9 +240,12 @@ Add focused tests for:
 - Claude launch env removes stale `ANTHROPIC_*` values.
 - Claude launch env sets Arkroute base URL, auth token, API key, and model discovery.
 - Launch returns a pid and does not wait for child exit when process start succeeds.
+- Launch is blocked, without spawning a process, when no interactive terminal is available.
+- Temporary setup-panel mode reports launch unavailable while still exposing copy-env guidance.
 - Missing binary returns a stable error.
 - Gateway unreachable returns a stable error.
-- Panel route handlers require the same local protection as existing internal endpoints.
+- Panel route handlers require the same setup-session protection as existing panel endpoints.
+- CLI Tools routes are mounted through both `panel.Routes` and `client/claude.Server.Routes`.
 - The CLI Tools panel renders the Claude Code row and disables Launch when not ready.
 
 Run before completion:
