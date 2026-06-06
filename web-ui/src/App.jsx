@@ -63,6 +63,7 @@ const NAV_ITEMS = [
   { id: "providers", icon: "ph-hard-drive", label: "Providers" },
   { id: "models", icon: "ph-git-fork", label: "Routes" },
   { id: "logs", icon: "ph-scroll", label: "Traces" },
+  { id: "cli-tools", icon: "ph-terminal-window", label: "CLI Tools" },
   { id: "system", icon: "ph-cpu", label: "System" }
 ];
 
@@ -245,6 +246,10 @@ function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const logsEndRef = useRef(null);
 
+  const [cliTools, setCliTools] = useState([]);
+  const [cliToolsStatus, setCliToolsStatus] = useState({ text: "", type: "" });
+  const [launchingTool, setLaunchingTool] = useState("");
+
   const [form, setForm] = useState({
     preset_id: "",
     provider_name: "",
@@ -305,6 +310,21 @@ function App() {
       .catch((err) => console.error("Failed to fetch logs:", err));
   }, [apiHeaders]);
 
+  const loadCliTools = useCallback((cancelled = () => false) => {
+    return fetch("/internal/cli-tools", { headers: apiHeaders })
+      .then((resp) => (resp.ok ? resp.json() : resp.json().then((data) => Promise.reject(new Error(data.error || resp.statusText)))))
+      .then((data) => {
+        if (!cancelled()) {
+          setCliTools(data.tools || []);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled()) {
+          setCliToolsStatus({ text: err.message, type: "error" });
+        }
+      });
+  }, [apiHeaders]);
+
   useEffect(() => {
     let cancelled = false;
     const isCancelled = () => cancelled;
@@ -350,10 +370,13 @@ function App() {
         clearInterval(interval);
       };
     }
+    if (activeTab === "cli-tools") {
+      loadCliTools(isCancelled);
+    }
     return () => {
       cancelled = true;
     };
-  }, [activeTab, loadLogs, loadStatus]);
+  }, [activeTab, loadLogs, loadStatus, loadCliTools]);
 
   useEffect(() => {
     if (activeTab === "logs" && logsEndRef.current) {
@@ -496,6 +519,35 @@ function App() {
       setStatus({ text: `Request failed: ${err.message}`, type: "error" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCopyActivation = async (tool) => {
+    try {
+      await navigator.clipboard.writeText(tool.activation_command || "arkroute activate claude");
+      setCliToolsStatus({ text: "Activation command copied.", type: "ok" });
+    } catch (err) {
+      setCliToolsStatus({ text: tool.activation_command || "arkroute activate claude", type: "info" });
+    }
+  };
+
+  const handleLaunchClaude = async () => {
+    setLaunchingTool("claude");
+    setCliToolsStatus({ text: "Launching Claude Code...", type: "" });
+    try {
+      const resp = await fetch("/internal/cli-tools/claude/launch", { method: "POST", headers: apiHeaders });
+      const data = await resp.json();
+      if (!resp.ok) {
+        const remediation = data.remediation ? ` ${data.remediation}` : "";
+        setCliToolsStatus({ text: `${data.error || resp.statusText}.${remediation}`, type: "error" });
+        return;
+      }
+      setCliToolsStatus({ text: `Claude Code launched with pid ${data.pid}.`, type: "ok" });
+      loadCliTools();
+    } catch (err) {
+      setCliToolsStatus({ text: `Launch failed: ${err.message}`, type: "error" });
+    } finally {
+      setLaunchingTool("");
     }
   };
 
@@ -771,6 +823,62 @@ function App() {
               )}
               <div ref={logsEndRef} />
             </div>
+          </section>
+        </div>
+
+        <div className={`tab-content ${activeTab === "cli-tools" ? "active" : ""}`}>
+          <PageHeader
+            icon="ph-terminal-window"
+            eyebrow="local clients"
+            title="CLI Tools"
+            description="Inspect local client readiness and launch supported tools through the Arkroute gateway."
+            stats={[{ label: "tools", value: cliTools.length }]}
+          />
+          <section className="operator-panel cli-tools-panel">
+            {cliTools.length > 0 ? cliTools.map((tool) => {
+              const ready = tool.installed && tool.gateway_reachable;
+              const canLaunch = ready && tool.launch_supported && launchingTool !== tool.id;
+              return (
+                <article className="cli-tool-row" key={tool.id}>
+                  <div className="cli-tool-main">
+                    <StatusBadge tone={canLaunch ? "ok" : ready ? "pending" : "error"}>
+                      {canLaunch ? "Ready" : ready ? "Launch unavailable" : "Needs attention"}
+                    </StatusBadge>
+                    <h3><i className="ph-light ph-terminal-window"></i>{tool.name}</h3>
+                    <code>{tool.command}</code>
+                  </div>
+                  <div className="cli-tool-details">
+                    <DataRow label="Binary">{tool.installed ? "found" : "not found"}</DataRow>
+                    <DataRow label="Gateway">{tool.gateway_reachable ? "reachable" : "offline"}</DataRow>
+                    <DataRow label="Base URL">{tool.base_url || "not configured"}</DataRow>
+                    <DataRow label="Discovery">{tool.model_discovery ? "enabled" : "disabled"}</DataRow>
+                  </div>
+                  {tool.launch_blocked_reason && (
+                    <div className="terminal-note cli-tool-note">
+                      <i className="ph-light ph-info"></i>
+                      <span>{tool.launch_blocked_reason}</span>
+                    </div>
+                  )}
+                  <div className="cli-tool-actions">
+                    <button type="button" disabled={!canLaunch} onClick={handleLaunchClaude}>
+                      <i className="ph-bold ph-play"></i>
+                      {launchingTool === tool.id ? "Launching" : "Launch"}
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={() => handleCopyActivation(tool)}>
+                      <i className="ph-bold ph-copy"></i>
+                      Copy Env
+                    </button>
+                  </div>
+                </article>
+              );
+            }) : (
+              <EmptyState icon="ph-terminal-window" title="No CLI tools detected">
+                Refresh the panel after the gateway session is ready.
+              </EmptyState>
+            )}
+            {cliToolsStatus.text && (
+              <div className={`status-box ${cliToolsStatus.type}`}>{cliToolsStatus.text}</div>
+            )}
           </section>
         </div>
 
