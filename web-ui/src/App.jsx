@@ -508,6 +508,10 @@ function App() {
   const [policyInspectLoading, setPolicyInspectLoading] = useState(false);
   const [policyInspectStatus, setPolicyInspectStatus] = useState({ text: "", type: "" });
 
+  const [configDraft, setConfigDraft] = useState("");
+  const [configTransferStatus, setConfigTransferStatus] = useState({ text: "", type: "" });
+  const [configImportSummary, setConfigImportSummary] = useState(null);
+
   const [form, setForm] = useState({
     preset_id: "",
     provider_name: "",
@@ -758,6 +762,80 @@ function App() {
 
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const downloadConfig = async (redacted) => {
+    setConfigTransferStatus({ text: "", type: "" });
+    const response = await fetch(`/internal/config/export?redacted=${redacted ? "1" : "0"}`, {
+      headers: apiHeaders
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      setConfigTransferStatus({ text: text || "Export failed", type: "error" });
+      return;
+    }
+    const blob = new Blob([text], { type: "application/x-yaml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = redacted ? "arkroute-config-redacted.yaml" : "arkroute-config.yaml";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setConfigTransferStatus({ text: redacted ? "Redacted config exported" : "Config exported", type: "ok" });
+  };
+
+  const copyRedactedConfig = async () => {
+    setConfigTransferStatus({ text: "", type: "" });
+    const response = await fetch("/internal/config/export?redacted=1", {
+      headers: apiHeaders
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      setConfigTransferStatus({ text: text || "Copy failed", type: "error" });
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    setConfigTransferStatus({ text: "Redacted config copied", type: "ok" });
+  };
+
+  const validateConfigDraft = async () => {
+    setConfigTransferStatus({ text: "", type: "" });
+    setConfigImportSummary(null);
+    const response = await fetch("/internal/config/import/validate", {
+      method: "POST",
+      headers: { ...apiHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ yaml: configDraft })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setConfigTransferStatus({ text: result.error || "Config validation failed", type: "error" });
+      return;
+    }
+    setConfigImportSummary(result.summary || null);
+    setConfigTransferStatus({ text: "Config is valid", type: "ok" });
+  };
+
+  const applyConfigDraft = async () => {
+    setConfigTransferStatus({ text: "", type: "" });
+    const response = await fetch("/internal/config/import/apply", {
+      method: "POST",
+      headers: { ...apiHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ yaml: configDraft })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setConfigTransferStatus({ text: result.error || "Import failed", type: "error" });
+      return;
+    }
+    setConfig(result.config);
+    setConfigImportSummary(result.summary || null);
+    setConfigTransferStatus({
+      text: result.backup_path ? `Config imported, backup: ${result.backup_path}` : "Config imported",
+      type: "ok"
+    });
+    loadStatus();
   };
 
   const handleSaveSetup = async () => {
@@ -1144,6 +1222,50 @@ function App() {
                 <DataRow label="Models">{modelCount}</DataRow>
                 <DataRow label="Routes">{routeCount}</DataRow>
               </div>
+            </section>
+
+            <section className="operator-card config-safety-card">
+              <div className="card-heading">
+                <div>
+                  <StatusBadge tone={configImportSummary ? "ok" : "pending"}>{configImportSummary ? "validated" : "config"}</StatusBadge>
+                  <h3><i className="ph-light ph-floppy-disk-back"></i>Config Safety</h3>
+                </div>
+              </div>
+              <div className="config-action-row">
+                <button className="secondary-button" type="button" onClick={() => downloadConfig(false)}>
+                  <i className="ph-light ph-download-simple"></i>Export full
+                </button>
+                <button className="secondary-button" type="button" onClick={() => downloadConfig(true)}>
+                  <i className="ph-light ph-shield-check"></i>Export redacted
+                </button>
+                <button className="secondary-button" type="button" onClick={copyRedactedConfig}>
+                  <i className="ph-light ph-copy"></i>Copy redacted
+                </button>
+              </div>
+              <textarea
+                className="config-import-textarea"
+                value={configDraft}
+                onChange={(event) => setConfigDraft(event.target.value)}
+                spellCheck="false"
+                placeholder="version: 1"
+              />
+              <div className="config-action-row">
+                <button className="secondary-button" type="button" onClick={validateConfigDraft} disabled={!configDraft.trim()}>
+                  <i className="ph-light ph-check-circle"></i>Validate import
+                </button>
+                <button className="primary-button" type="button" onClick={applyConfigDraft} disabled={!configDraft.trim()}>
+                  <i className="ph-light ph-upload-simple"></i>Apply import
+                </button>
+              </div>
+              {configImportSummary && (
+                <div className="config-summary-row">
+                  <DataRow label="Providers">{configImportSummary.providers}</DataRow>
+                  <DataRow label="Models">{configImportSummary.models}</DataRow>
+                  <DataRow label="Routes">{configImportSummary.routes}</DataRow>
+                  <DataRow label="Policies">{configImportSummary.compatibility_policies}</DataRow>
+                </div>
+              )}
+              {configTransferStatus.text && <div className={`status-box ${configTransferStatus.type}`}>{configTransferStatus.text}</div>}
             </section>
 
             <section className="operator-card">
