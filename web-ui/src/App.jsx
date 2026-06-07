@@ -59,7 +59,6 @@ const ROUTE_ALIASES = [
 ];
 
 const NAV_ITEMS = [
-  { id: "setup", icon: "ph-sliders-horizontal", label: "Setup" },
   { id: "providers", icon: "ph-hard-drive", label: "Providers" },
   { id: "models", icon: "ph-git-fork", label: "Routes" },
   { id: "logs", icon: "ph-scroll", label: "Traces" },
@@ -195,19 +194,197 @@ function ProviderCard({ provider }) {
   );
 }
 
-function ModelItem({ model }) {
+function ProviderPresetButton({ preset, active, onSelect }) {
   return (
-    <div className="list-item">
+    <button
+      className={`provider-preset ${active ? "active" : ""}`}
+      type="button"
+      onClick={() => onSelect(preset.id)}
+    >
+      <span className="preset-icon"><i className="ph-light ph-plugs-connected"></i></span>
+      <span className="preset-copy">
+        <strong>{preset.name}</strong>
+        <small>{preset.default_model || "custom model"}</small>
+      </span>
+      <code>{preset.type || "auto"}</code>
+    </button>
+  );
+}
+
+function ProviderSetupPanel({
+  form,
+  presets,
+  loading,
+  status,
+  showAdvanced,
+  providerNameOptions,
+  baseUrlOptions,
+  envNameOptions,
+  upstreamModelOptions,
+  exposedAliasOptions,
+  onPresetChange,
+  onInputChange,
+  onSaveSetup,
+  onSetupLater,
+  onToggleAdvanced
+}) {
+  return (
+    <form className="operator-panel setup-panel provider-setup-panel" onSubmit={(event) => event.preventDefault()}>
+      <section className="panel-section">
+        <div className="section-heading">
+          <span>01</span>
+          <div>
+            <h2>Provider setup</h2>
+            <p>Choose an agent preset, key source, and gateway route.</p>
+          </div>
+        </div>
+
+        <div className="field-grid">
+          <div className="field">
+            <label htmlFor="preset">Agent preset</label>
+            <select id="preset" value={form.preset_id} onChange={onPresetChange}>
+              {presets.length === 0 ? (
+                <option value="">Loading presets...</option>
+              ) : (
+                presets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>{preset.name}</option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div className="field">
+            <label>API key mode</label>
+            <div className="radio-group">
+              <label className="radio-label">
+                <input type="radio" name="api-key-mode" value="env" checked={form.api_key_mode === "env"} onChange={() => onInputChange("api_key_mode", "env")} />
+                <span>Environment</span>
+              </label>
+              <label className="radio-label">
+                <input type="radio" name="api-key-mode" value="config" checked={form.api_key_mode === "config"} onChange={() => onInputChange("api_key_mode", "config")} />
+                <span>Config</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {form.api_key_mode === "env" ? (
+          <div className="terminal-note">
+            <i className="ph-light ph-terminal-window"></i>
+            <span>export {form.env_name || "API_KEY"}=...</span>
+          </div>
+        ) : (
+          <div className="field">
+            <label htmlFor="api-key">API key</label>
+            <input id="api-key" type="password" placeholder="sk-..." value={form.api_key} onChange={(event) => onInputChange("api_key", event.target.value)} />
+          </div>
+        )}
+      </section>
+
+      <section className="panel-section compact">
+        <div className="checkbox-field">
+          <label className="checkbox-label">
+            <input id="activate-claude" type="checkbox" checked={form.activate_claude} onChange={(event) => onInputChange("activate_claude", event.target.checked)} />
+            <span>Activate Claude Code after save</span>
+          </label>
+        </div>
+      </section>
+
+      <button className="advanced-toggle" type="button" onClick={onToggleAdvanced}>
+        <i className={`ph-bold ph-caret-${showAdvanced ? "up" : "down"}`}></i>
+        <span>Advanced mapping</span>
+      </button>
+
+      {showAdvanced && (
+        <section className="panel-section advanced-fields">
+          <div className="field-grid">
+            <div className="field">
+              <label htmlFor="provider-name">Provider name</label>
+              <input id="provider-name" type="text" list="provider-name-options" value={form.provider_name} onChange={(event) => onInputChange("provider_name", event.target.value)} />
+              <datalist id="provider-name-options">
+                {providerNameOptions.map((option) => <option key={option} value={option} />)}
+              </datalist>
+            </div>
+
+            <div className="field">
+              <label htmlFor="provider-type">Protocol</label>
+              <select id="provider-type" value={form.type} onChange={(event) => onInputChange("type", event.target.value)}>
+                {PROTOCOL_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </div>
+
+            <div className="field span-2">
+              <label htmlFor="base-url">Base URL</label>
+              <input id="base-url" type="text" list="base-url-options" value={form.base_url} onChange={(event) => onInputChange("base_url", event.target.value)} />
+              <datalist id="base-url-options">
+                {baseUrlOptions.map((option) => <option key={option} value={option} />)}
+              </datalist>
+            </div>
+
+            {form.api_key_mode === "env" && (
+              <div className="field">
+                <label htmlFor="env-name">Env name</label>
+                <input id="env-name" type="text" list="env-name-options" value={form.env_name} onChange={(event) => onInputChange("env_name", event.target.value)} />
+                <datalist id="env-name-options">
+                  {envNameOptions.map((option) => <option key={option} value={option} />)}
+                </datalist>
+              </div>
+            )}
+
+            <div className="field">
+              <label htmlFor="upstream-model">Upstream model</label>
+              <input id="upstream-model" type="text" list="upstream-model-options" value={form.upstream_model} onChange={(event) => onInputChange("upstream_model", event.target.value)} />
+              <datalist id="upstream-model-options">
+                {upstreamModelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </datalist>
+            </div>
+
+            <div className="field">
+              <label htmlFor="exposed-alias">Exposed alias</label>
+              <input id="exposed-alias" type="text" list="exposed-alias-options" value={form.exposed_alias} onChange={(event) => onInputChange("exposed_alias", event.target.value)} />
+              <datalist id="exposed-alias-options">
+                {exposedAliasOptions.map((option) => <option key={option} value={option} />)}
+              </datalist>
+            </div>
+
+            <div className="field">
+              <label htmlFor="route-alias">Route alias</label>
+              <select id="route-alias" value={form.route_alias} onChange={(event) => onInputChange("route_alias", event.target.value)}>
+                {ROUTE_ALIASES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="actions">
+        <button id="save-setup" type="button" onClick={onSaveSetup} disabled={loading}>
+          <i className="ph-bold ph-floppy-disk"></i>
+          Save & Setup
+        </button>
+        <button id="setup-later" type="button" className="btn-secondary" onClick={onSetupLater} disabled={loading}>
+          Setup Later
+        </button>
+      </div>
+
+      {status.text && <div className={`status-box ${status.type}`} id="status">{status.text}</div>}
+    </form>
+  );
+}
+
+function ModelItem({ model, active, onSelect }) {
+  return (
+    <button className={`list-item selectable-list-item ${active ? "active" : ""}`} type="button" onClick={() => onSelect(model.id)}>
       <div>
         <strong>{model.display_name || model.id}</strong>
         <span>{model.provider_id}</span>
       </div>
       <code>{model.upstream_model}</code>
-    </div>
+    </button>
   );
 }
 
-function RouteItem({ route }) {
+function RouteItem({ route, selectedModelId, onSelectModel }) {
   return (
     <div className="list-item route-item">
       <div>
@@ -216,14 +393,91 @@ function RouteItem({ route }) {
       </div>
       <div className="target-list">
         {(route.targets || []).map((target, index) => (
-          <span className={target.enabled ? "target enabled" : "target"} key={`${target.model_id}-${index}`}>
+          <button
+            className={`${target.enabled ? "target enabled" : "target"} ${selectedModelId === target.model_id ? "selected" : ""}`}
+            key={`${target.model_id}-${index}`}
+            type="button"
+            onClick={() => onSelectModel(target.model_id)}
+          >
             {index + 1}. {target.model_id}
-          </span>
+          </button>
         ))}
       </div>
     </div>
   );
 }
+
+function PolicyValue({ label, value, source }) {
+  const renderedValue = typeof value === "boolean" ? (value ? "true" : "false") : (value || "unset");
+  return (
+    <div className="policy-value">
+      <span>{label}</span>
+      <strong>{renderedValue}</strong>
+      {source && <small>{source.policy_id || source.source}</small>}
+    </div>
+  );
+}
+
+function PolicyInspector({ inspection, loading, status }) {
+  if (loading) {
+    return <EmptyState icon="ph-shield-checkered" title="Inspecting policy">Reading local config and policy matches.</EmptyState>;
+  }
+  if (status.text) {
+    return <div className={`status-box ${status.type}`}>{status.text}</div>;
+  }
+  if (!inspection) {
+    return <EmptyState icon="ph-shield-checkered" title="No model selected">Select a registered model or route target.</EmptyState>;
+  }
+  const reasoning = inspection.resolved_reasoning || {};
+  const sources = inspection.reasoning_sources || {};
+  return (
+    <section className="operator-card policy-inspector-card">
+      <div className="card-heading">
+        <div>
+          <StatusBadge tone={inspection.matched_policies?.length > 0 ? "ok" : "pending"}>
+            {inspection.matched_policies?.length || 0} policies
+          </StatusBadge>
+          <h3><i className="ph-light ph-shield-checkered"></i>Policy Inspector</h3>
+        </div>
+      </div>
+
+      <div className="policy-summary-grid">
+        <DataRow label="Model">{inspection.model_id}</DataRow>
+        <DataRow label="Provider">{inspection.provider_id}</DataRow>
+        <DataRow label="Provider type">{inspection.provider_type || "auto"}</DataRow>
+        <DataRow label="Protocol">{inspection.protocol}</DataRow>
+        <DataRow label="Upstream">{inspection.upstream_model}</DataRow>
+      </div>
+
+      <div className="policy-chip-row">
+        {(inspection.matched_policies || []).length > 0 ? (
+          inspection.matched_policies.map((policy) => (
+            <span className={`policy-chip ${policy.source}`} key={`${policy.source}-${policy.id}`}>{policy.source}: {policy.id}</span>
+          ))
+        ) : (
+          <span className="policy-chip muted">no compatibility policy matched</span>
+        )}
+      </div>
+
+      <div className="policy-value-grid">
+        <PolicyValue label="enabled" value={reasoning.enabled} source={sources.enabled} />
+        <PolicyValue label="effort" value={reasoning.effort} source={sources.effort} />
+        <PolicyValue label="auto_enable" value={reasoning.auto_enable} source={sources.auto_enable} />
+        <PolicyValue label="auto_effort" value={reasoning.auto_effort} source={sources.auto_effort} />
+        <PolicyValue label="replay" value={reasoning.replay} source={sources.replay} />
+        <PolicyValue label="omit_tool_choice" value={reasoning.omit_tool_choice} source={sources.omit_tool_choice} />
+        <PolicyValue label="follow_claude_effort" value={reasoning.follow_claude_effort} source={sources.follow_claude_effort} />
+      </div>
+
+      {(inspection.explain || []).length > 0 && (
+        <div className="policy-explain-list">
+          {inspection.explain.map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
+        </div>
+      )}
+    </section>
+  );
+}
+
 
 function LogLine({ item }) {
   const log = logMessage(item);
@@ -237,7 +491,7 @@ function LogLine({ item }) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState("setup");
+  const [activeTab, setActiveTab] = useState("providers");
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: "Loading provider presets...", type: "" });
@@ -249,6 +503,10 @@ function App() {
   const [cliTools, setCliTools] = useState([]);
   const [cliToolsStatus, setCliToolsStatus] = useState({ text: "", type: "" });
   const [launchingTool, setLaunchingTool] = useState("");
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const [policyInspect, setPolicyInspect] = useState(null);
+  const [policyInspectLoading, setPolicyInspectLoading] = useState(false);
+  const [policyInspectStatus, setPolicyInspectStatus] = useState({ text: "", type: "" });
 
   const [form, setForm] = useState({
     preset_id: "",
@@ -384,6 +642,48 @@ function App() {
     }
   }, [logs, activeTab]);
 
+  useEffect(() => {
+    const models = config?.models || [];
+    if (models.length === 0) {
+      setSelectedModelId("");
+      setPolicyInspect(null);
+      return;
+    }
+    if (!selectedModelId || !models.some((model) => model.id === selectedModelId)) {
+      setSelectedModelId(models[0].id);
+    }
+  }, [config, selectedModelId]);
+
+  useEffect(() => {
+    if (activeTab !== "models" || !selectedModelId) {
+      return;
+    }
+    let cancelled = false;
+    setPolicyInspectLoading(true);
+    setPolicyInspectStatus({ text: "", type: "" });
+    fetch(`/internal/policy/inspect?model_id=${encodeURIComponent(selectedModelId)}`, { headers: apiHeaders })
+      .then((resp) => resp.ok ? resp.json() : resp.json().then((payload) => Promise.reject(new Error(payload.error || resp.statusText))))
+      .then((payload) => {
+        if (!cancelled) {
+          setPolicyInspect(payload);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setPolicyInspect(null);
+          setPolicyInspectStatus({ text: err.message, type: "error" });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPolicyInspectLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, selectedModelId, apiHeaders]);
+
   const providerNameOptions = useMemo(() => {
     const list = new Set();
     const activePreset = presets.find((p) => p.id === form.preset_id);
@@ -443,14 +743,17 @@ function App() {
     return Array.from(list);
   }, [form.preset_id, presets]);
 
-  const handlePresetChange = (event) => {
-    const selectedId = event.target.value;
+  const selectPresetById = useCallback((selectedId) => {
     const preset = presets.find((item) => item.id === selectedId);
     if (preset) {
       fillPreset(preset);
     } else {
       setForm((prev) => ({ ...prev, preset_id: selectedId }));
     }
+  }, [fillPreset, presets]);
+
+  const handlePresetChange = (event) => {
+    selectPresetById(event.target.value);
   };
 
   const handleInputChange = (field, value) => {
@@ -526,7 +829,7 @@ function App() {
     try {
       await navigator.clipboard.writeText(tool.activation_command || "arkroute activate claude");
       setCliToolsStatus({ text: "Activation command copied.", type: "ok" });
-    } catch (err) {
+    } catch {
       setCliToolsStatus({ text: tool.activation_command || "arkroute activate claude", type: "info" });
     }
   };
@@ -585,177 +888,78 @@ function App() {
       </aside>
 
       <section className="content">
-        <div className={`tab-content ${activeTab === "setup" ? "active" : ""}`}>
+        <div className={`tab-content ${activeTab === "providers" ? "active" : ""}`}>
           <PageHeader
-            icon="ph-circles-three-plus"
-            eyebrow="local gateway"
-            title="Configure Provider"
-            description="Select an upstream, map the exposed route, and write the local gateway config."
+            icon="ph-hard-drive"
+            eyebrow="gateway agents"
+            title="Providers"
+            description="Pick an agent preset, configure its key, and keep configured upstreams in view."
             stats={[
-              { label: "providers", value: providerCount },
+              { label: "enabled", value: providerCount },
               { label: "routes", value: routeCount },
               { label: "models", value: modelCount }
             ]}
           />
 
-          <form className="operator-panel setup-panel" onSubmit={(event) => event.preventDefault()}>
-            <section className="panel-section">
-              <div className="section-heading">
-                <span>01</span>
+          <div className="provider-workbench">
+            <section className="operator-card provider-catalog">
+              <div className="card-heading">
                 <div>
-                  <h2>Provider</h2>
-                  <p>Gateway upstream and protocol.</p>
+                  <StatusBadge tone={presets.length > 0 ? "ok" : "pending"}>{presets.length || "loading"}</StatusBadge>
+                  <h3><i className="ph-light ph-plugs"></i>Agent presets</h3>
                 </div>
               </div>
-
-              <div className="field-grid">
-                <div className="field">
-                  <label htmlFor="preset">Preset</label>
-                  <select id="preset" value={form.preset_id} onChange={handlePresetChange}>
-                    {presets.length === 0 ? (
-                      <option value="">Loading presets...</option>
-                    ) : (
-                      presets.map((preset) => (
-                        <option key={preset.id} value={preset.id}>{preset.name}</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                <div className="field">
-                  <label>API key mode</label>
-                  <div className="radio-group">
-                    <label className="radio-label">
-                      <input type="radio" name="api-key-mode" value="env" checked={form.api_key_mode === "env"} onChange={() => handleInputChange("api_key_mode", "env")} />
-                      <span>Environment</span>
-                    </label>
-                    <label className="radio-label">
-                      <input type="radio" name="api-key-mode" value="config" checked={form.api_key_mode === "config"} onChange={() => handleInputChange("api_key_mode", "config")} />
-                      <span>Config</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {form.api_key_mode === "env" ? (
-                <div className="terminal-note">
-                  <i className="ph-light ph-terminal-window"></i>
-                  <span>export {form.env_name || "API_KEY"}=...</span>
-                </div>
-              ) : (
-                <div className="field">
-                  <label htmlFor="api-key">API key</label>
-                  <input id="api-key" type="password" placeholder="sk-..." value={form.api_key} onChange={(event) => handleInputChange("api_key", event.target.value)} />
-                </div>
-              )}
-            </section>
-
-            <section className="panel-section compact">
-              <div className="checkbox-field">
-                <label className="checkbox-label">
-                  <input id="activate-claude" type="checkbox" checked={form.activate_claude} onChange={(event) => handleInputChange("activate_claude", event.target.checked)} />
-                  <span>Activate Claude Code after save</span>
-                </label>
+              <div className="preset-list">
+                {presets.length > 0 ? (
+                  presets.map((preset) => (
+                    <ProviderPresetButton
+                      active={form.preset_id === preset.id}
+                      key={preset.id}
+                      preset={preset}
+                      onSelect={selectPresetById}
+                    />
+                  ))
+                ) : (
+                  <EmptyState icon="ph-plugs" title="Loading presets">Provider options are loaded from the setup session.</EmptyState>
+                )}
               </div>
             </section>
 
-            <button className="advanced-toggle" type="button" onClick={() => setShowAdvanced(!showAdvanced)}>
-              <i className={`ph-bold ph-caret-${showAdvanced ? "up" : "down"}`}></i>
-              <span>Advanced mapping</span>
-            </button>
-
-            {showAdvanced && (
-              <section className="panel-section advanced-fields">
-                <div className="field-grid">
-                  <div className="field">
-                    <label htmlFor="provider-name">Provider name</label>
-                    <input id="provider-name" type="text" list="provider-name-options" value={form.provider_name} onChange={(event) => handleInputChange("provider_name", event.target.value)} />
-                    <datalist id="provider-name-options">
-                      {providerNameOptions.map((option) => <option key={option} value={option} />)}
-                    </datalist>
-                  </div>
-
-                  <div className="field">
-                    <label htmlFor="provider-type">Protocol</label>
-                    <select id="provider-type" value={form.type} onChange={(event) => handleInputChange("type", event.target.value)}>
-                      {PROTOCOL_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="field span-2">
-                    <label htmlFor="base-url">Base URL</label>
-                    <input id="base-url" type="text" list="base-url-options" value={form.base_url} onChange={(event) => handleInputChange("base_url", event.target.value)} />
-                    <datalist id="base-url-options">
-                      {baseUrlOptions.map((option) => <option key={option} value={option} />)}
-                    </datalist>
-                  </div>
-
-                  {form.api_key_mode === "env" && (
-                    <div className="field">
-                      <label htmlFor="env-name">Env name</label>
-                      <input id="env-name" type="text" list="env-name-options" value={form.env_name} onChange={(event) => handleInputChange("env_name", event.target.value)} />
-                      <datalist id="env-name-options">
-                        {envNameOptions.map((option) => <option key={option} value={option} />)}
-                      </datalist>
-                    </div>
-                  )}
-
-                  <div className="field">
-                    <label htmlFor="upstream-model">Upstream model</label>
-                    <input id="upstream-model" type="text" list="upstream-model-options" value={form.upstream_model} onChange={(event) => handleInputChange("upstream_model", event.target.value)} />
-                    <datalist id="upstream-model-options">
-                      {upstreamModelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </datalist>
-                  </div>
-
-                  <div className="field">
-                    <label htmlFor="exposed-alias">Exposed alias</label>
-                    <input id="exposed-alias" type="text" list="exposed-alias-options" value={form.exposed_alias} onChange={(event) => handleInputChange("exposed_alias", event.target.value)} />
-                    <datalist id="exposed-alias-options">
-                      {exposedAliasOptions.map((option) => <option key={option} value={option} />)}
-                    </datalist>
-                  </div>
-
-                  <div className="field">
-                    <label htmlFor="route-alias">Route alias</label>
-                    <select id="route-alias" value={form.route_alias} onChange={(event) => handleInputChange("route_alias", event.target.value)}>
-                      {ROUTE_ALIASES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            <div className="actions">
-              <button id="save-setup" type="button" onClick={handleSaveSetup} disabled={loading}>
-                <i className="ph-bold ph-floppy-disk"></i>
-                Save & Setup
-              </button>
-              <button id="setup-later" type="button" className="btn-secondary" onClick={handleSetupLater} disabled={loading}>
-                Setup Later
-              </button>
-            </div>
-
-            {status.text && <div className={`status-box ${status.type}`} id="status">{status.text}</div>}
-          </form>
-        </div>
-
-        <div className={`tab-content ${activeTab === "providers" ? "active" : ""}`}>
-          <PageHeader
-            icon="ph-hard-drive"
-            eyebrow="configuration"
-            title="Configured Providers"
-            description="Upstream services currently available to the router."
-            stats={[{ label: "enabled", value: providerCount }]}
-          />
-
-          <div className="operator-grid">
-            {providerCount > 0 ? (
-              config.providers.map((provider) => <ProviderCard key={provider.id} provider={provider} />)
-            ) : (
-              <EmptyState icon="ph-database" title="No providers">Save a provider from Setup to enable routing.</EmptyState>
-            )}
+            <ProviderSetupPanel
+              baseUrlOptions={baseUrlOptions}
+              envNameOptions={envNameOptions}
+              exposedAliasOptions={exposedAliasOptions}
+              form={form}
+              loading={loading}
+              presets={presets}
+              providerNameOptions={providerNameOptions}
+              showAdvanced={showAdvanced}
+              status={status}
+              upstreamModelOptions={upstreamModelOptions}
+              onInputChange={handleInputChange}
+              onPresetChange={handlePresetChange}
+              onSaveSetup={handleSaveSetup}
+              onSetupLater={handleSetupLater}
+              onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+            />
           </div>
+
+          <section className="configured-provider-section">
+            <div className="section-title-row">
+              <div>
+                <span className="eyebrow"><i className="ph-fill ph-database"></i>active upstreams</span>
+                <h2>Configured providers</h2>
+              </div>
+              <StatusBadge tone={providerCount > 0 ? "ok" : "pending"}>{providerCount > 0 ? `${providerCount} enabled` : "empty"}</StatusBadge>
+            </div>
+            <div className="operator-grid configured-provider-grid">
+              {providerCount > 0 ? (
+                config.providers.map((provider) => <ProviderCard key={provider.id} provider={provider} />)
+              ) : (
+                <EmptyState icon="ph-database" title="No providers">Choose an agent preset above and save the gateway setup.</EmptyState>
+              )}
+            </div>
+          </section>
         </div>
 
         <div className={`tab-content ${activeTab === "models" ? "active" : ""}`}>
@@ -777,7 +981,9 @@ function App() {
               </div>
               <div className="stack-list">
                 {modelCount > 0 ? (
-                  config.models.map((model) => <ModelItem key={model.id} model={model} />)
+                  config.models.map((model) => (
+                    <ModelItem key={model.id} model={model} active={selectedModelId === model.id} onSelect={setSelectedModelId} />
+                  ))
                 ) : (
                   <EmptyState icon="ph-cube" title="No models">Provider setup creates the first exposed model.</EmptyState>
                 )}
@@ -790,12 +996,16 @@ function App() {
               </div>
               <div className="stack-list">
                 {routeCount > 0 ? (
-                  config.routes.map((route) => <RouteItem key={route.alias} route={route} />)
+                  config.routes.map((route) => (
+                    <RouteItem key={route.alias} route={route} selectedModelId={selectedModelId} onSelectModel={setSelectedModelId} />
+                  ))
                 ) : (
                   <EmptyState icon="ph-git-branch" title="No routes">Create a route alias during provider setup.</EmptyState>
                 )}
               </div>
             </section>
+
+            <PolicyInspector inspection={policyInspect} loading={policyInspectLoading} status={policyInspectStatus} />
           </div>
         </div>
 
@@ -839,36 +1049,63 @@ function App() {
               const ready = tool.installed && tool.gateway_reachable;
               const canLaunch = ready && tool.launch_supported && launchingTool !== tool.id;
               return (
-                <article className="cli-tool-row" key={tool.id}>
-                  <div className="cli-tool-main">
+                <article className="cli-launcher-console" key={tool.id}>
+                  <div className="cli-console-bar">
+                    <div className="cli-console-title">
+                      <span className="console-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                      <strong>{tool.name}</strong>
+                      <code>{tool.command}</code>
+                    </div>
                     <StatusBadge tone={canLaunch ? "ok" : ready ? "pending" : "error"}>
-                      {canLaunch ? "Ready" : ready ? "Launch unavailable" : "Needs attention"}
+                      {canLaunch ? "Ready" : ready ? "Launch blocked" : "Needs attention"}
                     </StatusBadge>
-                    <h3><i className="ph-light ph-terminal-window"></i>{tool.name}</h3>
-                    <code>{tool.command}</code>
                   </div>
-                  <div className="cli-tool-details">
-                    <DataRow label="Binary">{tool.installed ? "found" : "not found"}</DataRow>
-                    <DataRow label="Gateway">{tool.gateway_reachable ? "reachable" : "offline"}</DataRow>
-                    <DataRow label="Base URL">{tool.base_url || "not configured"}</DataRow>
-                    <DataRow label="Discovery">{tool.model_discovery ? "enabled" : "disabled"}</DataRow>
+
+                  <div className="cli-console-body">
+                    <section className="cli-launch-main">
+                      <div className="cli-launch-icon"><i className="ph-light ph-terminal-window"></i></div>
+                      <div>
+                        <h3>Claude Code launcher</h3>
+                        <p>Starts Claude Code with Arkroute's Anthropic-compatible gateway environment.</p>
+                      </div>
+                      <div className="cli-tool-actions cli-launch-actions">
+                        <button className="launch-primary" type="button" disabled={!canLaunch} onClick={handleLaunchClaude}>
+                          <i className="ph-bold ph-play"></i>
+                          {launchingTool === tool.id ? "Launching" : "Launch"}
+                        </button>
+                        <button type="button" className="btn-secondary" onClick={() => handleCopyActivation(tool)}>
+                          <i className="ph-bold ph-copy"></i>
+                          Copy Env
+                        </button>
+                      </div>
+                    </section>
+
+                    <aside className="cli-readiness">
+                      <div className={`readiness-check ${tool.installed ? "ok" : "error"}`}>
+                        <span>Binary</span>
+                        <strong>{tool.installed ? "found" : "not found"}</strong>
+                      </div>
+                      <div className={`readiness-check ${tool.gateway_reachable ? "ok" : "error"}`}>
+                        <span>Gateway</span>
+                        <strong>{tool.gateway_reachable ? "reachable" : "offline"}</strong>
+                      </div>
+                      <div className={`readiness-check ${tool.model_discovery ? "ok" : "pending"}`}>
+                        <span>Models</span>
+                        <strong>{tool.model_discovery ? "discovery on" : "static only"}</strong>
+                      </div>
+                      <div className="cli-route-strip">
+                        <span>ANTHROPIC_BASE_URL</span>
+                        <code>{tool.base_url || "not configured"}</code>
+                      </div>
+                    </aside>
                   </div>
+
                   {tool.launch_blocked_reason && (
                     <div className="terminal-note cli-tool-note">
                       <i className="ph-light ph-info"></i>
                       <span>{tool.launch_blocked_reason}</span>
                     </div>
                   )}
-                  <div className="cli-tool-actions">
-                    <button type="button" disabled={!canLaunch} onClick={handleLaunchClaude}>
-                      <i className="ph-bold ph-play"></i>
-                      {launchingTool === tool.id ? "Launching" : "Launch"}
-                    </button>
-                    <button type="button" className="btn-secondary" onClick={() => handleCopyActivation(tool)}>
-                      <i className="ph-bold ph-copy"></i>
-                      Copy Env
-                    </button>
-                  </div>
                 </article>
               );
             }) : (
