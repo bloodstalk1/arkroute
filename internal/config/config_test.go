@@ -295,3 +295,39 @@ func hasCompatibilityPolicyMatch(matches []CompatibilityPolicyMatch, id, source 
 	}
 	return false
 }
+
+func TestLoadBytesAppliesDefaultsAndMigration(t *testing.T) {
+	data := []byte(`
+version: 1
+server:
+  host: 127.0.0.1
+  client_key: local-key
+clients:
+  claude:
+    enabled: true
+providers: []
+models: []
+routes: []
+profiles: {}
+`)
+	cfg, err := LoadBytes(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.Port != DefaultServerPort {
+		t.Fatalf("port = %d, want default %d", cfg.Server.Port, DefaultServerPort)
+	}
+	if cfg.Server.UpstreamTimeoutSeconds != 600 {
+		t.Fatalf("timeout = %d, want 600", cfg.Server.UpstreamTimeoutSeconds)
+	}
+	if cfg.Profiles == nil {
+		t.Fatal("profiles = nil, want initialized map")
+	}
+}
+
+func TestLoadBytesRejectsInvalidYAML(t *testing.T) {
+	if _, err := LoadBytes([]byte("server:\n  host: [")); err == nil {
+		t.Fatal("LoadBytes error = nil, want YAML parse error")
+	}
+}
+

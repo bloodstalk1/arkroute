@@ -11,11 +11,15 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	return LoadBytes(data)
+}
+
+func LoadBytes(data []byte) (Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
-	cfg, err = Migrate(cfg)
+	cfg, err := Migrate(cfg)
 	if err != nil {
 		return Config{}, err
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/security"
 	setupcore "github.com/bloodstalk1/arkroute/internal/setup"
-	"gopkg.in/yaml.v3"
 )
 
 //go:embed assets/*
@@ -152,29 +151,12 @@ func handleProvider(path string, claudeWriter func(config.Config) error, onSave 
 }
 
 func loadOrBootstrapConfig(path string) (config.Config, error) {
-	cfg, err := config.LoadFile(path)
-	if err == nil {
-		return cfg, nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return config.Config{}, err
-	}
-	key, err := security.GenerateClientKey()
-	if err != nil {
-		return config.Config{}, err
-	}
-	return config.BootstrapLocalConfig(key), nil
+	return NewConfigStore(path).LoadOrBootstrap()
 }
 
 func savePanelConfig(path string, cfg config.Config) error {
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
+	_, err := NewConfigStore(path).Save(cfg)
+	return err
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
