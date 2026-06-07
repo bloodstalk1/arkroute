@@ -3,7 +3,6 @@ package openai
 import (
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -167,5 +166,5 @@ func responseIDWithPrefix(id string, prefix string) string {
 	if id != "" {
 		return prefix + strings.TrimPrefix(id, "chatcmpl_")
 	}
-	return prefix + strconv.FormatInt(time.Now().UnixNano(), 36)
+	return newOpenAIID(prefix)
 }

@@ -3,7 +3,7 @@ package openai
 import (
 	"fmt"
 	"net/http"
-	"time"
+	"strings"
 
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
 )
@@ -14,13 +14,15 @@ func writeResponsesStream(w http.ResponseWriter, stream arkruntime.StreamResult,
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	id := "resp_" + fmt.Sprint(time.Now().UnixNano())
-	itemID := "msg_" + fmt.Sprint(time.Now().UnixNano())
-	created := time.Now().Unix()
+	id := newOpenAIID("resp_")
+	itemID := newOpenAIID("msg_")
+	created := unixNow()
 	sequence := 1
 	textStarted := false
+	itemDone := false
+	var outputText strings.Builder
 
-	writeNamedSSE(w, "response.created", map[string]any{
+	if err := writeNamedSSE(w, "response.created", map[string]any{
 		"type":            "response.created",
 		"sequence_number": sequence,
 		"response": map[string]any{
@@ -38,53 +40,57 @@ func writeResponsesStream(w http.ResponseWriter, stream arkruntime.StreamResult,
 			"incomplete_details":   nil,
 			"usage":                nil,
 		},
-	})
+	}); err != nil {
+		return
+	}
 	sequence++
 
 	for event := range stream.Events {
 		switch event.Type {
 		case "content_delta":
+			if itemDone {
+				continue
+			}
 			if !textStarted {
-				writeNamedSSE(w, "response.output_item.added", map[string]any{
+				if err := writeNamedSSE(w, "response.output_item.added", map[string]any{
 					"type":            "response.output_item.added",
 					"sequence_number": sequence,
 					"output_index":    0,
-					"item": map[string]any{
-						"id":      itemID,
-						"type":    "message",
-						"status":  "in_progress",
-						"role":    "assistant",
-						"content": []any{},
+					"item": responseStreamMessageItem{
+						ID:      itemID,
+						Type:    "message",
+						Status:  "in_progress",
+						Role:    "assistant",
+						Content: []responseContentPart{},
 					},
-				})
+				}); err != nil {
+					return
+				}
 				sequence++
 				textStarted = true
 			}
-			writeNamedSSE(w, "response.output_text.delta", map[string]any{
+			outputText.WriteString(event.Delta)
+			if err := writeNamedSSE(w, "response.output_text.delta", map[string]any{
 				"type":            "response.output_text.delta",
 				"sequence_number": sequence,
 				"item_id":         itemID,
 				"output_index":    0,
 				"content_index":   0,
 				"delta":           event.Delta,
-			})
+			}); err != nil {
+				return
+			}
 			sequence++
 		case "message_delta":
-			writeNamedSSE(w, "response.output_item.done", map[string]any{
-				"type":            "response.output_item.done",
-				"sequence_number": sequence,
-				"output_index":    0,
-				"item": map[string]any{
-					"id":      itemID,
-					"type":    "message",
-					"status":  "completed",
-					"role":    "assistant",
-					"content": []any{},
-				},
-			})
-			sequence++
+			if textStarted && !itemDone {
+				if err := writeResponsesOutputItemDone(w, sequence, itemID, outputText.String()); err != nil {
+					return
+				}
+				sequence++
+				itemDone = true
+			}
 		case "error":
-			writeNamedSSE(w, "response.failed", map[string]any{
+			_ = writeNamedSSE(w, "response.failed", map[string]any{
 				"type":            "response.failed",
 				"sequence_number": sequence,
 				"response": map[string]any{
@@ -99,7 +105,14 @@ func writeResponsesStream(w http.ResponseWriter, stream arkruntime.StreamResult,
 		}
 	}
 
-	writeNamedSSE(w, "response.completed", map[string]any{
+	text := outputText.String()
+	if textStarted && !itemDone {
+		if err := writeResponsesOutputItemDone(w, sequence, itemID, text); err != nil {
+			return
+		}
+		sequence++
+	}
+	_ = writeNamedSSE(w, "response.completed", map[string]any{
 		"type":            "response.completed",
 		"sequence_number": sequence,
 		"response": map[string]any{
@@ -108,8 +121,8 @@ func writeResponsesStream(w http.ResponseWriter, stream arkruntime.StreamResult,
 			"created_at":           created,
 			"status":               "completed",
 			"model":                model,
-			"output":               []any{},
-			"output_text":          "",
+			"output":               responseStreamOutput(itemID, text),
+			"output_text":          text,
 			"parallel_tool_calls":  true,
 			"previous_response_id": nil,
 			"store":                false,
@@ -120,7 +133,52 @@ func writeResponsesStream(w http.ResponseWriter, stream arkruntime.StreamResult,
 	})
 }
 
-func writeNamedSSE(w http.ResponseWriter, event string, payload any) {
-	fmt.Fprintf(w, "event: %s\n", event)
-	writeSSEData(w, payload)
+func writeResponsesOutputItemDone(w http.ResponseWriter, sequence int, itemID string, text string) error {
+	return writeNamedSSE(w, "response.output_item.done", map[string]any{
+		"type":            "response.output_item.done",
+		"sequence_number": sequence,
+		"output_index":    0,
+		"item": responseStreamMessageItem{
+			ID:      itemID,
+			Type:    "message",
+			Status:  "completed",
+			Role:    "assistant",
+			Content: responseStreamContent(text),
+		},
+	})
+}
+
+func responseStreamOutput(itemID string, text string) []responseOutputItem {
+	if text == "" {
+		return []responseOutputItem{}
+	}
+	return []responseOutputItem{{
+		ID:      itemID,
+		Type:    "message",
+		Status:  "completed",
+		Role:    "assistant",
+		Content: responseStreamContent(text),
+	}}
+}
+
+func responseStreamContent(text string) []responseContentPart {
+	if text == "" {
+		return []responseContentPart{}
+	}
+	return []responseContentPart{{Type: "output_text", Text: text, Annotations: []any{}}}
+}
+
+type responseStreamMessageItem struct {
+	ID      string                `json:"id"`
+	Type    string                `json:"type"`
+	Status  string                `json:"status"`
+	Role    string                `json:"role"`
+	Content []responseContentPart `json:"content"`
+}
+
+func writeNamedSSE(w http.ResponseWriter, event string, payload any) error {
+	if _, err := fmt.Fprintf(w, "event: %s\n", event); err != nil {
+		return err
+	}
+	return writeSSEData(w, payload)
 }

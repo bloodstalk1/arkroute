@@ -3,7 +3,6 @@ package openai
 import (
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -99,7 +98,7 @@ func requestID(r *http.Request) string {
 	if value := r.Header.Get("x-request-id"); value != "" {
 		return value
 	}
-	return "req_" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	return newOpenAIID("req_")
 }
 
 func mapChatCompletionResponse(resp protocol.Response, model string) chatCompletionResponse {
@@ -145,7 +144,7 @@ func responseID(id string) string {
 	if id != "" {
 		return id
 	}
-	return "chatcmpl_" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	return newOpenAIID("chatcmpl_")
 }
 
 func mapStopReason(reason string) string {

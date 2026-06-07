@@ -89,7 +89,7 @@ func TestResponsesStreamingText(t *testing.T) {
 		t.Fatalf("content type = %q, want text/event-stream", contentType)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"event: response.created", `"type":"response.created"`, "event: response.output_text.delta", `"delta":"hi"`, "event: response.completed", `"status":"completed"`} {
+	for _, want := range []string{"event: response.created", `"type":"response.created"`, "event: response.output_text.delta", `"delta":"hi"`, "event: response.output_item.done", `"content":[{"type":"output_text","text":"hi","annotations":[]}]`, "event: response.completed", `"status":"completed"`, `"output_text":"hi"`, `"output":[{"id":"msg_`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Responses stream missing %s: %s", want, body)
 		}

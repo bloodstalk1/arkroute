@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/bloodstalk1/arkroute/internal/protocol"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
@@ -15,28 +14,29 @@ func writeChatCompletionStream(w http.ResponseWriter, stream arkruntime.StreamRe
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
-	id := "chatcmpl_" + fmt.Sprint(time.Now().UnixNano())
-	created := time.Now().Unix()
-	doneSent := false
+	id := newOpenAIID("chatcmpl_")
+	created := unixNow()
 	for event := range stream.Events {
-		if writeChatStreamEvent(w, id, created, model, event) {
-			doneSent = true
+		done, err := writeChatStreamEvent(w, id, created, model, event)
+		if err != nil {
+			return
+		}
+		if done {
+			return
 		}
 	}
-	if !doneSent {
-		writeSSEData(w, "[DONE]")
-	}
+	_ = writeSSEData(w, "[DONE]")
 }
 
-func writeChatStreamEvent(w http.ResponseWriter, id string, created int64, model string, event protocol.StreamEvent) bool {
+func writeChatStreamEvent(w http.ResponseWriter, id string, created int64, model string, event protocol.StreamEvent) (bool, error) {
 	switch event.Type {
 	case "message_start":
-		writeChatChunk(w, id, created, model, map[string]any{"role": "assistant"}, nil)
+		return false, writeChatChunk(w, id, created, model, map[string]any{"role": "assistant"}, nil)
 	case "content_delta":
-		writeChatChunk(w, id, created, model, map[string]any{"content": event.Delta}, nil)
+		return false, writeChatChunk(w, id, created, model, map[string]any{"content": event.Delta}, nil)
 	case "content_block_start":
 		if event.Block.Type == "tool_use" {
-			writeChatChunk(w, id, created, model, map[string]any{
+			return false, writeChatChunk(w, id, created, model, map[string]any{
 				"tool_calls": []map[string]any{{
 					"index": event.Index,
 					"id":    event.Block.ID,
@@ -49,7 +49,7 @@ func writeChatStreamEvent(w http.ResponseWriter, id string, created int64, model
 			}, nil)
 		}
 	case "tool_input_delta":
-		writeChatChunk(w, id, created, model, map[string]any{
+		return false, writeChatChunk(w, id, created, model, map[string]any{
 			"tool_calls": []map[string]any{{
 				"index": event.Index,
 				"function": map[string]any{
@@ -59,19 +59,19 @@ func writeChatStreamEvent(w http.ResponseWriter, id string, created int64, model
 		}, nil)
 	case "message_delta":
 		finishReason := mapStopReason(event.StopReason)
-		writeChatChunk(w, id, created, model, map[string]any{}, &finishReason)
+		return false, writeChatChunk(w, id, created, model, map[string]any{}, &finishReason)
 	case "message_stop":
-		writeSSEData(w, "[DONE]")
-		return true
+		return true, writeSSEData(w, "[DONE]")
 	case "error":
-		writeSSEData(w, errorBody{Error: errorDetail{Message: event.Error, Type: "api_error", Code: "stream_error"}})
-		writeSSEData(w, "[DONE]")
-		return true
+		if err := writeSSEData(w, errorBody{Error: errorDetail{Message: event.Error, Type: "api_error", Code: "stream_error"}}); err != nil {
+			return true, err
+		}
+		return true, writeSSEData(w, "[DONE]")
 	}
-	return false
+	return false, nil
 }
 
-func writeChatChunk(w http.ResponseWriter, id string, created int64, model string, delta map[string]any, finishReason *string) {
+func writeChatChunk(w http.ResponseWriter, id string, created int64, model string, delta map[string]any, finishReason *string) error {
 	choice := map[string]any{
 		"index": 0,
 		"delta": delta,
@@ -79,7 +79,7 @@ func writeChatChunk(w http.ResponseWriter, id string, created int64, model strin
 	if finishReason != nil {
 		choice["finish_reason"] = *finishReason
 	}
-	writeSSEData(w, map[string]any{
+	return writeSSEData(w, map[string]any{
 		"id":      id,
 		"object":  "chat.completion.chunk",
 		"created": created,
@@ -88,14 +88,22 @@ func writeChatChunk(w http.ResponseWriter, id string, created int64, model strin
 	})
 }
 
-func writeSSEData(w http.ResponseWriter, payload any) {
+func writeSSEData(w http.ResponseWriter, payload any) error {
 	if text, ok := payload.(string); ok {
-		fmt.Fprintf(w, "data: %s\n\n", text)
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", text); err != nil {
+			return err
+		}
 	} else {
-		data, _ := json.Marshal(payload)
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return err
+		}
 	}
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}
+	return nil
 }
