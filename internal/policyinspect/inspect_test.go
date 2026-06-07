@@ -72,3 +72,28 @@ func TestInspectModelMissingProvider(t *testing.T) {
 		t.Fatalf("error = %v, want ErrProviderNotFound", err)
 	}
 }
+
+func TestInspectModelIncludesUserOverrideMetadata(t *testing.T) {
+	falseValue := false
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.CompatibilityPolicies = []config.CompatibilityPolicyConfig{{
+		ID: "model-openrouter-sonnet-compat",
+		Match: config.CompatibilityMatchConfig{
+			ProviderIDContains:    []string{cfg.Models[0].ProviderID},
+			UpstreamModelPatterns: []string{cfg.Models[0].UpstreamModel},
+		},
+		Reasoning: config.CompatibilityReasoningConfig{
+			Replay: &falseValue,
+		},
+	}}
+	got, err := InspectModel(cfg, cfg.Models[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.UserOverride.Exists {
+		t.Fatalf("user override = %+v, want exists", got.UserOverride)
+	}
+	if got.UserOverride.Replay == nil || *got.UserOverride.Replay {
+		t.Fatalf("user override replay = %v, want false", got.UserOverride.Replay)
+	}
+}

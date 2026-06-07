@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/policyedit"
 	"github.com/bloodstalk1/arkroute/internal/protocol"
 	providercatalog "github.com/bloodstalk1/arkroute/internal/provider"
 	"github.com/bloodstalk1/arkroute/internal/reasoning"
@@ -27,6 +28,7 @@ type Inspection struct {
 	ResolvedReasoning ResolvedReasoning                          `json:"resolved_reasoning"`
 	ReasoningSources  map[string]config.CompatibilityFieldSource `json:"reasoning_sources"`
 	Explain           []string                                   `json:"explain"`
+	UserOverride      policyedit.UserOverride                    `json:"user_override"`
 }
 
 type ResolvedReasoning struct {
@@ -63,6 +65,7 @@ func InspectModel(cfg config.Config, modelID string) (Inspection, error) {
 		ResolvedReasoning: resolvedReasoning(compat.Model, behavior),
 		ReasoningSources:  compat.ReasoningSources,
 		Explain:           compat.Explain,
+		UserOverride:      policyedit.FindModelOverride(cfg, compat.Model.ID),
 	}, nil
 }
 

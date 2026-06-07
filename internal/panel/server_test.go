@@ -3,6 +3,7 @@ package panel
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -309,6 +310,115 @@ func TestConfigImportApplyCreatesBackupAndReloads(t *testing.T) {
 	}
 	if cfg.Server.ClientKey != "new-key" {
 		t.Fatalf("client key = %q, want new-key", cfg.Server.ClientKey)
+	}
+}
+
+func TestPolicyOverrideSaveDisablesDeepSeekBuiltinAndReloads(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].ID = "deepseek"
+	cfg.Models[0].ID = "deepseek-v4-pro"
+	cfg.Models[0].ProviderID = "deepseek"
+	cfg.Models[0].UpstreamModel = "deepseek-v4-pro"
+	cfg.Models[0].Capabilities.Reasoning = false
+	cfg.Routes[0].Targets[0].ModelID = "deepseek-v4-pro"
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	reloads := 0
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{
+		Sessions:   store,
+		ConfigPath: path,
+		OnSave: func() error {
+			reloads++
+			return nil
+		},
+	})
+	body := strings.NewReader(`{"model_id":"deepseek-v4-pro","auto_enable":false,"replay":false,"omit_tool_choice":false}`)
+	req := httptest.NewRequest(http.MethodPut, "/internal/policy/override", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if reloads != 1 {
+		t.Fatalf("reloads = %d, want 1", reloads)
+	}
+	if !strings.Contains(rec.Body.String(), `"backup_path"`) {
+		t.Fatalf("body missing backup_path: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"auto_enable":false`) {
+		t.Fatalf("body = %s, want auto_enable false", rec.Body.String())
+	}
+}
+
+func TestPolicyOverrideRejectsInvalidEffortWithoutOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	body := strings.NewReader(`{"model_id":"openrouter-sonnet","auto_effort":"ultracode"}`)
+	req := httptest.NewRequest(http.MethodPut, "/internal/policy/override", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("config changed after invalid override\nbefore=%s\nafter=%s", string(before), string(after))
+	}
+}
+
+func TestPolicyOverrideDeleteRemovesGeneratedPolicy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	trueValue := true
+	cfg.CompatibilityPolicies = []config.CompatibilityPolicyConfig{{
+		ID: "model-openrouter-sonnet-compat",
+		Match: config.CompatibilityMatchConfig{
+			ProviderIDContains:    []string{cfg.Models[0].ProviderID},
+			UpstreamModelPatterns: []string{cfg.Models[0].UpstreamModel},
+		},
+		Reasoning: config.CompatibilityReasoningConfig{AutoEnable: &trueValue},
+	}}
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	req := httptest.NewRequest(http.MethodDelete, "/internal/policy/override?model_id=openrouter-sonnet", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	updated, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.CompatibilityPolicies) != 0 {
+		t.Fatalf("policies = %+v, want empty", updated.CompatibilityPolicies)
 	}
 }
 

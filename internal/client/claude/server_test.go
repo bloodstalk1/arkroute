@@ -1061,3 +1061,34 @@ profiles: {}
 	}
 }
 
+func TestGatewayMountsPolicyOverrideEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	if err := panelTestWriteConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(Deps{ConfigPath: path})
+	handler := server.Routes()
+	token := server.sessions.Issue()
+	req := httptest.NewRequest(http.MethodPut, "/internal/policy/override", strings.NewReader(`{"model_id":"openrouter-sonnet","replay":false}`))
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"policy_id":"model-openrouter-sonnet-compat"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func panelTestWriteConfig(path string, cfg config.Config) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
+}
+
+
