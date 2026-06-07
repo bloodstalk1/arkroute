@@ -40,6 +40,7 @@ func (cfg Config) Validate() error {
 	if strings.TrimSpace(cfg.Server.ClientKey) == "" {
 		fields["server.client_key"] = "must be non-empty"
 	}
+	validateCompatibilityPolicies(fields, cfg.CompatibilityPolicies)
 
 	providers := map[string]ProviderConfig{}
 	enabledProviders := map[string]ProviderConfig{}
@@ -153,6 +154,54 @@ func validateDiscoveryAlias(fields map[string]string, seen map[string]string, pa
 		fields[path] = "must be unique; already used by " + owner
 	}
 	seen[value] = path
+}
+
+func validateCompatibilityPolicies(fields map[string]string, policies []CompatibilityPolicyConfig) {
+	seen := map[string]string{}
+	for i, policy := range policies {
+		prefix := fmt.Sprintf("compatibility_policies[%d]", i)
+		if strings.TrimSpace(policy.ID) == "" {
+			fields[prefix+".id"] = "must be non-empty"
+		} else if owner, exists := seen[policy.ID]; exists {
+			fields[prefix+".id"] = "must be unique; already used by " + owner
+		}
+		seen[policy.ID] = prefix
+		validateCompatibilityMatch(fields, prefix+".match", policy.Match)
+		if policy.Reasoning.AutoEffort != "" && !validReasoningEffort(policy.Reasoning.AutoEffort) {
+			fields[prefix+".reasoning.auto_effort"] = "must be low, medium, high, or max"
+		}
+	}
+}
+
+func validateCompatibilityMatch(fields map[string]string, prefix string, match CompatibilityMatchConfig) {
+	hasMatcher := len(match.ProviderIDContains) > 0 ||
+		len(match.ProviderTypeContains) > 0 ||
+		len(match.UpstreamModelContains) > 0 ||
+		len(match.UpstreamModelPatterns) > 0
+	if !hasMatcher {
+		fields[prefix] = "must define at least one matcher"
+	}
+	validateNonEmptyList(fields, prefix+".provider_id_contains", match.ProviderIDContains)
+	validateNonEmptyList(fields, prefix+".provider_type_contains", match.ProviderTypeContains)
+	validateNonEmptyList(fields, prefix+".upstream_model_contains", match.UpstreamModelContains)
+	for i, pattern := range match.UpstreamModelPatterns {
+		path := fmt.Sprintf("%s.upstream_model_patterns[%d]", prefix, i)
+		if strings.TrimSpace(pattern) == "" {
+			fields[path] = "must be non-empty"
+			continue
+		}
+		if _, err := wildcardPatternRegexp(strings.ToLower(pattern)); err != nil {
+			fields[path] = "must be a valid glob pattern"
+		}
+	}
+}
+
+func validateNonEmptyList(fields map[string]string, prefix string, values []string) {
+	for i, value := range values {
+		if strings.TrimSpace(value) == "" {
+			fields[fmt.Sprintf("%s[%d]", prefix, i)] = "must be non-empty"
+		}
+	}
 }
 
 func validReasoningEffort(value string) bool {

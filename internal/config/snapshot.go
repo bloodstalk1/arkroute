@@ -37,6 +37,9 @@ func BuildSnapshot(cfg Config) (Snapshot, error) {
 	}
 	for _, model := range cfg.Models {
 		if model.Enabled {
+			if provider, ok := s.ProvidersByID[model.ProviderID]; ok {
+				model = ApplyCompatibilityPolicies(provider, model, cfg.CompatibilityPolicies)
+			}
 			s.ModelsByID[model.ID] = model
 			s.ModelsByExposedAlias[model.ExposedAlias] = model
 		}

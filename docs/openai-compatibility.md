@@ -70,6 +70,26 @@ Explicit unsupported errors:
 - audio output options and non-text `modalities`
 - non-function tool types
 
+## Compatibility Policies
+
+Arkroute keeps model/provider quirks in compatibility policies instead of scattering model-name checks through adapters. Built-in policies cover known reasoning replay and DeepSeek V4 tool-choice behavior. User policies in `config.yaml` are applied before built-ins, and explicit `models[].reasoning` fields win over both.
+
+Example override:
+
+```yaml
+compatibility_policies:
+  - id: deepseek-v4-custom
+    match:
+      provider_id_contains: ["deepseek"]
+      upstream_model_patterns: ["*deepseek*v4*"]
+    reasoning:
+      auto_enable: false
+      replay: false
+      omit_tool_choice: false
+```
+
+Supported match fields are `provider_id_contains`, `provider_type_contains`, `upstream_model_contains`, and `upstream_model_patterns`. Supported reasoning fields are `auto_enable`, `auto_effort`, `replay`, and `omit_tool_choice`.
+
 Example:
 
 ```sh

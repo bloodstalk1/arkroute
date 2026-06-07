@@ -6,13 +6,14 @@ const (
 )
 
 type Config struct {
-	Version   int               `yaml:"version" json:"version"`
-	Server    ServerConfig      `yaml:"server" json:"server"`
-	Clients   ClientsConfig     `yaml:"clients" json:"clients"`
-	Providers []ProviderConfig  `yaml:"providers" json:"providers"`
-	Models    []ModelConfig     `yaml:"models" json:"models"`
-	Routes    []RouteConfig     `yaml:"routes" json:"routes"`
-	Profiles  map[string]string `yaml:"profiles" json:"profiles"`
+	Version               int                         `yaml:"version" json:"version"`
+	Server                ServerConfig                `yaml:"server" json:"server"`
+	Clients               ClientsConfig               `yaml:"clients" json:"clients"`
+	Providers             []ProviderConfig            `yaml:"providers" json:"providers"`
+	Models                []ModelConfig               `yaml:"models" json:"models"`
+	Routes                []RouteConfig               `yaml:"routes" json:"routes"`
+	Profiles              map[string]string           `yaml:"profiles" json:"profiles"`
+	CompatibilityPolicies []CompatibilityPolicyConfig `yaml:"compatibility_policies,omitempty" json:"compatibility_policies,omitempty"`
 }
 
 type ServerConfig struct {
@@ -58,9 +59,31 @@ type ReasoningConfig struct {
 	Mode               string `yaml:"mode,omitempty" json:"mode,omitempty"`
 	Enabled            *bool  `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	Effort             string `yaml:"effort,omitempty" json:"effort,omitempty"`
+	AutoEnable         *bool  `yaml:"auto_enable,omitempty" json:"auto_enable,omitempty"`
+	AutoEffort         string `yaml:"auto_effort,omitempty" json:"auto_effort,omitempty"`
 	Replay             *bool  `yaml:"replay,omitempty" json:"replay,omitempty"`
 	OmitToolChoice     *bool  `yaml:"omit_tool_choice,omitempty" json:"omit_tool_choice,omitempty"`
 	FollowClaudeEffort *bool  `yaml:"follow_claude_effort,omitempty" json:"follow_claude_effort,omitempty"`
+}
+
+type CompatibilityPolicyConfig struct {
+	ID        string                       `yaml:"id" json:"id"`
+	Match     CompatibilityMatchConfig     `yaml:"match" json:"match"`
+	Reasoning CompatibilityReasoningConfig `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
+}
+
+type CompatibilityMatchConfig struct {
+	ProviderIDContains    []string `yaml:"provider_id_contains,omitempty" json:"provider_id_contains,omitempty"`
+	ProviderTypeContains  []string `yaml:"provider_type_contains,omitempty" json:"provider_type_contains,omitempty"`
+	UpstreamModelContains []string `yaml:"upstream_model_contains,omitempty" json:"upstream_model_contains,omitempty"`
+	UpstreamModelPatterns []string `yaml:"upstream_model_patterns,omitempty" json:"upstream_model_patterns,omitempty"`
+}
+
+type CompatibilityReasoningConfig struct {
+	AutoEnable     *bool  `yaml:"auto_enable,omitempty" json:"auto_enable,omitempty"`
+	AutoEffort     string `yaml:"auto_effort,omitempty" json:"auto_effort,omitempty"`
+	Replay         *bool  `yaml:"replay,omitempty" json:"replay,omitempty"`
+	OmitToolChoice *bool  `yaml:"omit_tool_choice,omitempty" json:"omit_tool_choice,omitempty"`
 }
 
 type Capabilities struct {

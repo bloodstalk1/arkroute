@@ -813,6 +813,50 @@ func TestBuildRequestAutoModeCanInferDeepSeekToolChoiceQuirk(t *testing.T) {
 	}
 }
 
+func TestBuildRequestAutoModeHonorsCompatibilityOverrideOverBuiltinDeepSeek(t *testing.T) {
+	adapter := Adapter{}
+	req := protocol.Request{
+		Model:      "sonnet",
+		ToolChoice: json.RawMessage(`"auto"`),
+		Messages: []protocol.Message{{
+			Role:    protocol.RoleUser,
+			Content: []protocol.ContentBlock{{Type: "text", Text: "use tools if needed"}},
+		}},
+		Tools: []protocol.Tool{{
+			Name:        "search_docs",
+			Description: "Search docs",
+			InputSchema: json.RawMessage(`{"type":"object"}`),
+		}},
+	}
+	provider := config.ProviderConfig{ID: "deepseek-provider", BaseURL: "https://example.test/v1", APIKey: "sk-test"}
+	model := config.ModelConfig{
+		UpstreamModel: "deepseek-v4-pro",
+		Reasoning: config.ReasoningConfig{
+			Mode:           "auto",
+			AutoEnable:     boolPtr(false),
+			Replay:         boolPtr(false),
+			OmitToolChoice: boolPtr(false),
+		},
+	}
+	out, err := adapter.BuildRequest(req, provider, model)
+	if err != nil {
+		t.Fatalf("BuildRequest() error = %v", err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(out.Body, &body); err != nil {
+		t.Fatalf("unmarshal body %s: %v", out.Body, err)
+	}
+	if _, ok := body["tool_choice"]; !ok {
+		t.Fatalf("tool_choice should be preserved when policy override disables omission: %s", out.Body)
+	}
+	if _, ok := body["reasoning_effort"]; ok {
+		t.Fatalf("auto_enable=false should not emit reasoning_effort: %s", out.Body)
+	}
+	if thinking, ok := body["thinking"].(map[string]any); ok && thinking["type"] == "enabled" {
+		t.Fatalf("auto_enable=false should not enable thinking: %s", out.Body)
+	}
+}
+
 func TestBuildRequestAutoModeDoesNotReplayReasoningFromOpenCodeProviderName(t *testing.T) {
 	resetReasoningCacheForTest()
 	defer resetReasoningCacheForTest()
