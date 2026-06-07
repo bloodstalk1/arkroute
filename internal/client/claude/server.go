@@ -69,6 +69,7 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("/internal/setup/logs", panelHandler)
 	mux.Handle("/internal/cli-tools", panelHandler)
 	mux.Handle("/internal/cli-tools/claude/launch", panelHandler)
+	mux.Handle("/internal/policy/inspect", panelHandler)
 	mux.HandleFunc("/internal/setup/session", s.withAuth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)

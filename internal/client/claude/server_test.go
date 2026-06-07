@@ -48,6 +48,20 @@ func TestModelsReturnsRouteAliases(t *testing.T) {
 	}
 }
 
+func TestModelsReturnsModelExposedAliases(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "sonnet-or") {
+		t.Fatalf("models response missing model exposed alias: %s", rec.Body.String())
+	}
+}
+
 func TestModelsIncludesOpenAICompatibleListFields(t *testing.T) {
 	srv := testServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
@@ -981,3 +995,31 @@ func TestCLIToolsMountedOnGatewayWithSetupSession(t *testing.T) {
 	}
 }
 
+func TestPolicyInspectMountedOnGatewayWithSetupSession(t *testing.T) {
+	srv := testServer(t)
+	sessionReq := httptest.NewRequest(http.MethodPost, "/internal/setup/session", nil)
+	sessionReq.Header.Set("Authorization", "Bearer local-key")
+	sessionRec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(sessionRec, sessionReq)
+	if sessionRec.Code != http.StatusOK {
+		t.Fatalf("session status = %d, body = %s", sessionRec.Code, sessionRec.Body.String())
+	}
+	var sessionPayload struct {
+		SetupToken string `json:"setup_token"`
+	}
+	if err := json.Unmarshal(sessionRec.Body.Bytes(), &sessionPayload); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/internal/policy/inspect?model_id=openrouter-sonnet", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", sessionPayload.SetupToken)
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"schema_version":1`, `"model_id":"openrouter-sonnet"`, `"resolved_reasoning"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("body missing %s: %s", want, rec.Body.String())
+		}
+	}
+}
