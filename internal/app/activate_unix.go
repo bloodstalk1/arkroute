@@ -16,6 +16,7 @@ func PrintClaudeActivation(w io.Writer, cfg config.Config) {
 	fmt.Fprintf(w, "export ANTHROPIC_AUTH_TOKEN=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "export ANTHROPIC_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=%s\n", security.ShellQuote("1"))
+	fmt.Fprintf(w, "export CLAUDE_CODE_AUTO_COMPACT_WINDOW=%s\n", security.ShellQuote(claudeAutoCompactWindow))
 }
 
 func PrintClaudeActivationSettingsWarning(w io.Writer, cfg config.Config, settingsPath string) {

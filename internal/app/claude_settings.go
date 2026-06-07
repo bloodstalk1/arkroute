@@ -15,6 +15,8 @@ const (
 	claudeEnvAuthToken      = "ANTHROPIC_AUTH_TOKEN"
 	claudeEnvAPIKey         = "ANTHROPIC_API_KEY"
 	claudeEnvModelDiscovery = "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"
+	claudeEnvAutoCompact    = "CLAUDE_CODE_AUTO_COMPACT_WINDOW"
+	claudeAutoCompactWindow = "190000"
 )
 
 type ClaudeSettingsDiagnosis struct {
@@ -56,6 +58,7 @@ func WriteClaudeSettings(path string, cfg config.Config) error {
 	env[claudeEnvAuthToken] = cfg.Server.ClientKey
 	env[claudeEnvAPIKey] = cfg.Server.ClientKey
 	env[claudeEnvModelDiscovery] = "1"
+	env[claudeEnvAutoCompact] = claudeAutoCompactWindow
 	settings["env"] = env
 
 	data, err := json.MarshalIndent(settings, "", "  ")
@@ -133,6 +136,7 @@ func RemoveClaudeSettings(path string, cfg config.Config) (bool, error) {
 	delete(env, claudeEnvAuthToken)
 	delete(env, claudeEnvAPIKey)
 	delete(env, claudeEnvModelDiscovery)
+	delete(env, claudeEnvAutoCompact)
 	settings["env"] = env
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {

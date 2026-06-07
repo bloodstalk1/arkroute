@@ -24,6 +24,20 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	}
 	snapshot := gen.Snapshot()
 	entries := map[string]aproto.Model{}
+	for _, model := range snapshot.ModelsByExposedAlias {
+		entries[model.ExposedAlias] = aproto.Model{
+			ID:            model.ExposedAlias,
+			DisplayName:   model.DisplayName,
+			ContextWindow: model.Capabilities.ContextWindow,
+		}
+		if model.ClaudeDiscoveryAlias != "" {
+			entries[model.ClaudeDiscoveryAlias] = aproto.Model{
+				ID:            model.ClaudeDiscoveryAlias,
+				DisplayName:   model.DisplayName,
+				ContextWindow: model.Capabilities.ContextWindow,
+			}
+		}
+	}
 	for _, route := range snapshot.RoutesByAlias {
 		display := route.Alias
 		context := 0

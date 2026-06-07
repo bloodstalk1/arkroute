@@ -48,6 +48,9 @@ func TestWriteClaudeSettingsPreservesExistingFieldsAndUpdatesArkRouteEnv(t *test
 	if env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] != "1" {
 		t.Fatalf("model discovery env = %#v", env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"])
 	}
+	if env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] != "190000" {
+		t.Fatalf("auto compact env = %#v", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+	}
 }
 
 func TestDiagnoseClaudeSettingsDetectsBaseURLMismatch(t *testing.T) {
@@ -124,7 +127,7 @@ func TestRemoveClaudeSettingsRemovesOnlyMatchingArkrouteValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, secret := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"} {
+	for _, secret := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "CLAUDE_CODE_AUTO_COMPACT_WINDOW"} {
 		if strings.Contains(string(data), secret) {
 			t.Fatalf("settings still contain %s: %s", secret, data)
 		}

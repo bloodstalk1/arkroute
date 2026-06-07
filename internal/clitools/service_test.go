@@ -43,6 +43,7 @@ func TestClaudeLaunchEnvRemovesStaleAnthropicValues(t *testing.T) {
 		"\nANTHROPIC_AUTH_TOKEN=local-key\n",
 		"\nANTHROPIC_API_KEY=local-key\n",
 		"\nCLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1\n",
+		"\nCLAUDE_CODE_AUTO_COMPACT_WINDOW=190000\n",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("env missing %q: %v", want, got)
@@ -53,11 +54,11 @@ func TestClaudeLaunchEnvRemovesStaleAnthropicValues(t *testing.T) {
 func TestStatusReportsReadyWhenEverythingIsAvailable(t *testing.T) {
 	path := writeConfig(t, testConfig())
 	svc := Service{
-		ConfigPath:              path,
-		GatewayHosted:           true,
-		LookupPath:              func(string) (string, error) { return "/usr/local/bin/claude", nil },
-		GatewayReachable:        func(config.Config) bool { return true },
-		HasInteractiveTerminal:  func() bool { return true },
+		ConfigPath:               path,
+		GatewayHosted:            true,
+		LookupPath:               func(string) (string, error) { return "/usr/local/bin/claude", nil },
+		GatewayReachable:         func(config.Config) bool { return true },
+		HasInteractiveTerminal:   func() bool { return true },
 		ActivationCommandBuilder: func(config.Config) string { return `eval "$(arkroute activate claude)"` },
 	}
 	resp, err := svc.Status()

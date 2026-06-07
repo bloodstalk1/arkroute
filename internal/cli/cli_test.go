@@ -67,7 +67,7 @@ func TestRunActivateClaudePrintsExports(t *testing.T) {
 		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
 	}
 	out := stdout.String()
-	for _, want := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"} {
+	for _, want := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "CLAUDE_CODE_AUTO_COMPACT_WINDOW"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("activate output missing %s: %q", want, out)
 		}
