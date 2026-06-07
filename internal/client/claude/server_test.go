@@ -1023,3 +1023,41 @@ func TestPolicyInspectMountedOnGatewayWithSetupSession(t *testing.T) {
 		}
 	}
 }
+
+func TestGatewayMountsConfigExportEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	if err := os.WriteFile(path, []byte(`version: 1
+server:
+  host: 127.0.0.1
+  port: 2002
+  client_key: local-key
+  upstream_timeout_seconds: 600
+clients:
+  claude:
+    enabled: true
+    model_discovery: true
+providers: []
+models: []
+routes: []
+profiles: {}
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_ = cfg
+	server := NewServer(Deps{ConfigPath: path})
+	handler := server.Routes()
+	token := server.sessions.Issue()
+	req := httptest.NewRequest(http.MethodGet, "/internal/config/export?redacted=1", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "version: 1") {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+

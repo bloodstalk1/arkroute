@@ -208,3 +208,107 @@ func TestPolicyInspectMissingModelReturnsNotFound(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestConfigExportRequiresSessionToken(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/config/export?redacted=1", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestConfigExportRedactedDoesNotLeakSecrets(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].APIKey = "sk-secret"
+	cfg.Providers[0].Headers = map[string]string{"X-Test": "secret-header"}
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	req := httptest.NewRequest(http.MethodGet, "/internal/config/export?redacted=1", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, leaked := range []string{"local-key", "sk-secret", "secret-header"} {
+		if strings.Contains(rec.Body.String(), leaked) {
+			t.Fatalf("redacted export leaked %q: %s", leaked, rec.Body.String())
+		}
+	}
+}
+
+func TestConfigImportValidateRejectsInvalidConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := savePanelConfig(path, config.MinimalValidConfig("local-key")); err != nil {
+		t.Fatal(err)
+	}
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	body := strings.NewReader(`{"yaml":"version: 1\nserver:\n  host: 0.0.0.0\n  port: 2002\n  client_key: local-key\nproviders: []\nmodels: []\nroutes: []\nprofiles: {}\n"}`)
+	req := httptest.NewRequest(http.MethodPost, "/internal/config/import/validate", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	current, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Server.Host != "127.0.0.1" {
+		t.Fatalf("current host = %q, want unchanged loopback host", current.Server.Host)
+	}
+}
+
+func TestConfigImportApplyCreatesBackupAndReloads(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := savePanelConfig(path, config.MinimalValidConfig("old-key")); err != nil {
+		t.Fatal(err)
+	}
+	reloads := 0
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{
+		Sessions:   store,
+		ConfigPath: path,
+		OnSave: func() error {
+			reloads++
+			return nil
+		},
+	})
+	body := strings.NewReader(`{"yaml":"version: 1\nserver:\n  host: 127.0.0.1\n  port: 2002\n  client_key: new-key\n  upstream_timeout_seconds: 600\nclients:\n  claude:\n    enabled: true\n    model_discovery: true\nproviders: []\nmodels: []\nroutes: []\nprofiles: {}\n"}`)
+	req := httptest.NewRequest(http.MethodPost, "/internal/config/import/apply", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if reloads != 1 {
+		t.Fatalf("reloads = %d, want 1", reloads)
+	}
+	if !strings.Contains(rec.Body.String(), `"backup_path"`) {
+		t.Fatalf("body missing backup_path: %s", rec.Body.String())
+	}
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.ClientKey != "new-key" {
+		t.Fatalf("client key = %q, want new-key", cfg.Server.ClientKey)
+	}
+}
+
