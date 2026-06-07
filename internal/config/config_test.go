@@ -115,6 +115,65 @@ func TestValidateRejectsInvalidReasoningMode(t *testing.T) {
 	}
 }
 
+func TestBuildSnapshotAppliesCompatibilityPolicyWithoutOverridingModelReasoning(t *testing.T) {
+	cfg := MinimalValidConfig("ark-local-key")
+	cfg.Models[0].Reasoning.Replay = configBoolPtr(false)
+	cfg.CompatibilityPolicies = []CompatibilityPolicyConfig{{
+		ID: "openrouter-sonnet-reasoning",
+		Match: CompatibilityMatchConfig{
+			ProviderIDContains:    []string{"openrouter"},
+			UpstreamModelPatterns: []string{"*claude-sonnet*"},
+		},
+		Reasoning: CompatibilityReasoningConfig{
+			AutoEnable:     configBoolPtr(true),
+			AutoEffort:     "high",
+			Replay:         configBoolPtr(true),
+			OmitToolChoice: configBoolPtr(true),
+		},
+	}}
+
+	snapshot, err := BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatalf("BuildSnapshot() error = %v", err)
+	}
+	got := snapshot.ModelsByID[cfg.Models[0].ID].Reasoning
+	if got.Replay == nil || *got.Replay {
+		t.Fatalf("Replay = %v, want model-level false to win", got.Replay)
+	}
+	if got.OmitToolChoice == nil || !*got.OmitToolChoice {
+		t.Fatalf("OmitToolChoice = %v, want policy true", got.OmitToolChoice)
+	}
+	if got.AutoEnable == nil || !*got.AutoEnable {
+		t.Fatalf("AutoEnable = %v, want policy true", got.AutoEnable)
+	}
+	if got.AutoEffort != "high" {
+		t.Fatalf("AutoEffort = %q, want high", got.AutoEffort)
+	}
+}
+
+func TestValidateRejectsInvalidCompatibilityPolicy(t *testing.T) {
+	cfg := MinimalValidConfig("ark-local-key")
+	cfg.CompatibilityPolicies = []CompatibilityPolicyConfig{{
+		ID: "bad-policy",
+		Match: CompatibilityMatchConfig{
+			UpstreamModelPatterns: []string{""},
+		},
+		Reasoning: CompatibilityReasoningConfig{AutoEffort: "ultracode"},
+	}}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() error = nil, want compatibility policy error")
+	}
+	for _, want := range []string{
+		"compatibility_policies[0].match.upstream_model_patterns[0]",
+		"compatibility_policies[0].reasoning.auto_effort",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error = %q, want %s", err.Error(), want)
+		}
+	}
+}
+
 func TestBuildSnapshotIndexesAliases(t *testing.T) {
 	cfg := MinimalValidConfig("ark-local-key")
 	snapshot, err := BuildSnapshot(cfg)
@@ -161,4 +220,78 @@ func TestValidateRejectsBrokenReferencesWhenPartialSetupExists(t *testing.T) {
 	if !strings.Contains(err.Error(), "models[0].provider_id") {
 		t.Fatalf("error = %q, want models[0].provider_id", err.Error())
 	}
+}
+
+func configBoolPtr(value bool) *bool {
+	return &value
+}
+
+func TestInspectCompatibilityPoliciesExplainsPrecedence(t *testing.T) {
+	cfg := MinimalValidConfig("ark-local-key")
+	cfg.Providers[0].ID = "deepseek"
+	cfg.Models[0].ID = "deepseek-v4-pro"
+	cfg.Models[0].ProviderID = "deepseek"
+	cfg.Models[0].UpstreamModel = "provider/deepseek-v4-pro"
+	cfg.Models[0].Reasoning.Replay = configBoolPtr(false)
+	cfg.CompatibilityPolicies = []CompatibilityPolicyConfig{{
+		ID: "user-deepseek-v4",
+		Match: CompatibilityMatchConfig{
+			UpstreamModelPatterns: []string{"*deepseek*v4*"},
+		},
+		Reasoning: CompatibilityReasoningConfig{
+			OmitToolChoice: configBoolPtr(false),
+		},
+	}}
+
+	got := InspectCompatibilityPolicies(cfg.Providers[0], cfg.Models[0], cfg.CompatibilityPolicies)
+	for _, want := range []CompatibilityPolicyMatch{
+		{ID: "user-deepseek-v4", Source: "user"},
+		{ID: "deepseek-v4-openai-compatible", Source: "builtin"},
+		{ID: "reasoning-replay-provider-families", Source: "builtin"},
+		{ID: "reasoning-replay-model-families", Source: "builtin"},
+	} {
+		if !hasCompatibilityPolicyMatch(got.MatchedPolicies, want.ID, want.Source) {
+			t.Fatalf("matched policies = %+v, missing %+v", got.MatchedPolicies, want)
+		}
+	}
+	if got.Model.Reasoning.Replay == nil || *got.Model.Reasoning.Replay {
+		t.Fatalf("replay = %v, want model override false", got.Model.Reasoning.Replay)
+	}
+	if got.Model.Reasoning.OmitToolChoice == nil || *got.Model.Reasoning.OmitToolChoice {
+		t.Fatalf("omit_tool_choice = %v, want user override false", got.Model.Reasoning.OmitToolChoice)
+	}
+	if got.Model.Reasoning.AutoEnable == nil || !*got.Model.Reasoning.AutoEnable {
+		t.Fatalf("auto_enable = %v, want builtin true", got.Model.Reasoning.AutoEnable)
+	}
+	if got.Model.Reasoning.AutoEffort != "max" {
+		t.Fatalf("auto_effort = %q, want max", got.Model.Reasoning.AutoEffort)
+	}
+	if got.ReasoningSources["replay"].Source != "model" {
+		t.Fatalf("replay source = %+v, want model source", got.ReasoningSources["replay"])
+	}
+	if got.ReasoningSources["omit_tool_choice"].PolicyID != "user-deepseek-v4" {
+		t.Fatalf("omit_tool_choice source = %+v, want user policy source", got.ReasoningSources["omit_tool_choice"])
+	}
+	if got.ReasoningSources["auto_enable"].PolicyID != "deepseek-v4-openai-compatible" {
+		t.Fatalf("auto_enable source = %+v, want builtin policy source", got.ReasoningSources["auto_enable"])
+	}
+	explain := strings.Join(got.Explain, "\n")
+	for _, want := range []string{
+		"models[].reasoning.replay overrides policy deepseek-v4-openai-compatible replay",
+		"user policy user-deepseek-v4 sets omit_tool_choice",
+		"builtin policy deepseek-v4-openai-compatible sets auto_enable",
+	} {
+		if !strings.Contains(explain, want) {
+			t.Fatalf("explain missing %q: %s", want, explain)
+		}
+	}
+}
+
+func hasCompatibilityPolicyMatch(matches []CompatibilityPolicyMatch, id, source string) bool {
+	for _, match := range matches {
+		if match.ID == id && match.Source == source {
+			return true
+		}
+	}
+	return false
 }
