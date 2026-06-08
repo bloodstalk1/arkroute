@@ -13,6 +13,18 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
+func TestMain(m *testing.M) {
+	tmpDir, err := os.MkdirTemp("", "arkroute-test-home-*")
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("HOME", tmpDir)
+
+	code := m.Run()
+	_ = os.RemoveAll(tmpDir)
+	os.Exit(code)
+}
+
 func TestRoutesServeSetupHTML(t *testing.T) {
 	handler := Routes(Deps{Sessions: NewSessionStore(time.Minute)})
 	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
@@ -395,8 +407,8 @@ func TestPolicyOverrideDeleteRemovesGeneratedPolicy(t *testing.T) {
 	cfg.CompatibilityPolicies = []config.CompatibilityPolicyConfig{{
 		ID: "model-openrouter-sonnet-compat",
 		Match: config.CompatibilityMatchConfig{
-			ProviderIDContains:    []string{cfg.Models[0].ProviderID},
-			UpstreamModelPatterns: []string{cfg.Models[0].UpstreamModel},
+			ProviderIDs:    []string{cfg.Models[0].ProviderID},
+			UpstreamModels: []string{cfg.Models[0].UpstreamModel},
 		},
 		Reasoning: config.CompatibilityReasoningConfig{AutoEnable: &trueValue},
 	}}
@@ -422,3 +434,41 @@ func TestPolicyOverrideDeleteRemovesGeneratedPolicy(t *testing.T) {
 	}
 }
 
+func TestCLIContextRequiresSessionToken(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-context?route_alias=sonnet", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestCLIContextReturnsProfilesForRoute(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].APIKey = "sk-secret"
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-context?route_alias=sonnet", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"schema_version":1`, `"selected_alias":"sonnet"`, `"id":"claude"`, `"id":"opencode"`, `"id":"codex"`, `"id":"droid"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("body missing %s: %s", want, rec.Body.String())
+		}
+	}
+	if strings.Contains(rec.Body.String(), "sk-secret") {
+		t.Fatalf("response leaked provider secret: %s", rec.Body.String())
+	}
+}

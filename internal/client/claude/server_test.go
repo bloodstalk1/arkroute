@@ -1091,4 +1091,27 @@ func panelTestWriteConfig(path string, cfg config.Config) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
+func TestGatewayMountsCLIContextEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.MinimalValidConfig("local-key")
+	if err := panelTestWriteConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(Deps{ConfigPath: path})
+	handler := server.Routes()
+	token := server.sessions.Issue()
+	req := httptest.NewRequest(http.MethodGet, "/internal/cli-context?route_alias=sonnet", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"selected_alias":"sonnet"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+
 

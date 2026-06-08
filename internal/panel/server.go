@@ -46,6 +46,7 @@ func Routes(deps Deps) http.Handler {
 	mux.HandleFunc("/internal/cli-tools/claude/launch", withSetupToken(deps.Sessions, handleClaudeLaunch(deps.CLITools)))
 	mux.HandleFunc("/internal/policy/inspect", withSetupToken(deps.Sessions, handlePolicyInspect(deps.ConfigPath)))
 	mux.HandleFunc("/internal/policy/override", withSetupToken(deps.Sessions, handlePolicyOverride(deps.ConfigPath, deps.OnSave)))
+	mux.HandleFunc("/internal/cli-context", withSetupToken(deps.Sessions, handleCLIContext(deps.ConfigPath)))
 	return mux
 }
 
