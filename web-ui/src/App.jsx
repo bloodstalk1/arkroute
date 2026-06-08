@@ -418,7 +418,84 @@ function PolicyValue({ label, value, source }) {
   );
 }
 
-function PolicyInspector({ inspection, loading, status }) {
+function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideChanged }) {
+  const [overrideDraft, setOverrideDraft] = useState({
+    auto_enable: "unset",
+    auto_effort: "unset",
+    replay: "unset",
+    omit_tool_choice: "unset"
+  });
+  const [overrideSaving, setOverrideSaving] = useState(false);
+  const [overrideStatus, setOverrideStatus] = useState({ text: "", type: "" });
+
+  useEffect(() => {
+    if (!inspection) return;
+    const override = inspection.user_override || {};
+    setOverrideDraft({
+      auto_enable: override.auto_enable === true ? "true" : override.auto_enable === false ? "false" : "unset",
+      auto_effort: override.auto_effort || "unset",
+      replay: override.replay === true ? "true" : override.replay === false ? "false" : "unset",
+      omit_tool_choice: override.omit_tool_choice === true ? "true" : override.omit_tool_choice === false ? "false" : "unset"
+    });
+    setOverrideStatus({ text: "", type: "" });
+  }, [inspection]);
+
+  const handleSaveOverride = async () => {
+    setOverrideSaving(true);
+    setOverrideStatus({ text: "Saving override...", type: "" });
+    try {
+      const payload = {
+        model_id: inspection.model_id,
+        auto_enable: overrideDraft.auto_enable === "true" ? true : overrideDraft.auto_enable === "false" ? false : null,
+        auto_effort: overrideDraft.auto_effort === "unset" ? "" : overrideDraft.auto_effort,
+        replay: overrideDraft.replay === "true" ? true : overrideDraft.replay === "false" ? false : null,
+        omit_tool_choice: overrideDraft.omit_tool_choice === "true" ? true : overrideDraft.omit_tool_choice === "false" ? false : null
+      };
+      const response = await fetch("/internal/policy/override", {
+        method: "PUT",
+        headers: apiHeaders,
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setOverrideStatus({ text: data.error || "Save override failed", type: "error" });
+        return;
+      }
+      setOverrideStatus({ text: "Override saved successfully.", type: "ok" });
+      if (onOverrideChanged) {
+        onOverrideChanged(inspection.model_id);
+      }
+    } catch (err) {
+      setOverrideStatus({ text: err.message, type: "error" });
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
+
+  const handleResetToBuiltin = async () => {
+    setOverrideSaving(true);
+    setOverrideStatus({ text: "Resetting override...", type: "" });
+    try {
+      const response = await fetch(`/internal/policy/override?model_id=${encodeURIComponent(inspection.model_id)}`, {
+        method: "DELETE",
+        headers: apiHeaders
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setOverrideStatus({ text: data.error || "Reset failed", type: "error" });
+        return;
+      }
+      setOverrideStatus({ text: "Override reset to builtin successfully.", type: "ok" });
+      if (onOverrideChanged) {
+        onOverrideChanged(inspection.model_id);
+      }
+    } catch (err) {
+      setOverrideStatus({ text: err.message, type: "error" });
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
+
   if (loading) {
     return <EmptyState icon="ph-shield-checkered" title="Inspecting policy">Reading local config and policy matches.</EmptyState>;
   }
@@ -452,7 +529,7 @@ function PolicyInspector({ inspection, loading, status }) {
       <div className="policy-chip-row">
         {(inspection.matched_policies || []).length > 0 ? (
           inspection.matched_policies.map((policy) => (
-            <span className={`policy-chip ${policy.source}`} key={`${policy.source}-${policy.id}`}>{policy.source}: {policy.id}</span>
+            <span className={`policy-chip ${policy.source} ${policy.source === 'user' ? 'user' : 'builtin'}`} key={`${policy.source}-${policy.id}`}>{policy.source}: {policy.id}</span>
           ))
         ) : (
           <span className="policy-chip muted">no compatibility policy matched</span>
@@ -474,6 +551,99 @@ function PolicyInspector({ inspection, loading, status }) {
           {inspection.explain.map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
         </div>
       )}
+
+      <div className="policy-override-editor" style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid rgba(148, 163, 184, 0.15)" }}>
+        <h4 style={{ margin: "0 0 16px 0", color: "#f8fafc", fontSize: "14px" }}>
+          <i className="ph-bold ph-pencil-simple-line" style={{ marginRight: "8px" }}></i>
+          Compatibility Policy Override
+        </h4>
+
+        <div className="field-grid" style={{ gap: "12px", marginBottom: "16px" }}>
+          <div className="field">
+            <label htmlFor="override-auto-enable">auto_enable</label>
+            <select
+              id="override-auto-enable"
+              value={overrideDraft.auto_enable}
+              onChange={(e) => setOverrideDraft(prev => ({ ...prev, auto_enable: e.target.value }))}
+            >
+              <option value="unset">unset (default)</option>
+              <option value="true">true (force enable)</option>
+              <option value="false">false (force disable)</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="override-auto-effort">auto_effort</label>
+            <select
+              id="override-auto-effort"
+              value={overrideDraft.auto_effort}
+              onChange={(e) => setOverrideDraft(prev => ({ ...prev, auto_effort: e.target.value }))}
+            >
+              <option value="unset">unset (default)</option>
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="max">max</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="override-replay">replay</label>
+            <select
+              id="override-replay"
+              value={overrideDraft.replay}
+              onChange={(e) => setOverrideDraft(prev => ({ ...prev, replay: e.target.value }))}
+            >
+              <option value="unset">unset (default)</option>
+              <option value="true">true (force enable)</option>
+              <option value="false">false (force disable)</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="override-omit-tool-choice">omit_tool_choice</label>
+            <select
+              id="override-omit-tool-choice"
+              value={overrideDraft.omit_tool_choice}
+              onChange={(e) => setOverrideDraft(prev => ({ ...prev, omit_tool_choice: e.target.value }))}
+            >
+              <option value="unset">unset (default)</option>
+              <option value="true">true (force enable)</option>
+              <option value="false">false (force disable)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="actions" style={{ gap: "10px", marginTop: "16px" }}>
+          <button
+            id="save-policy-override"
+            type="button"
+            onClick={handleSaveOverride}
+            disabled={overrideSaving}
+          >
+            <i className="ph-bold ph-floppy-disk"></i>
+            Save override
+          </button>
+
+          {inspection.user_override?.exists && (
+            <button
+              id="reset-policy-override"
+              type="button"
+              className="btn-secondary"
+              onClick={handleResetToBuiltin}
+              disabled={overrideSaving}
+            >
+              Reset to builtin
+            </button>
+          )}
+        </div>
+
+        {overrideStatus.text && (
+          <div className={`status-box ${overrideStatus.type}`} style={{ marginTop: "12px" }}>
+            {overrideStatus.text}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -487,6 +657,101 @@ function LogLine({ item }) {
       <span className="log-label">{log.label}</span>
       <p>{log.text}</p>
     </div>
+  );
+}
+
+function ProviderDetail({ provider, models, routes, onSelectModel, onSelectRoute }) {
+  if (!provider) {
+    return <EmptyState icon="ph-hard-drive" title="No provider selected">Choose a configured provider.</EmptyState>;
+  }
+  const providerModels = models.filter((model) => model.provider_id === provider.id);
+  return (
+    <section className="operator-card detail-panel">
+      <div className="card-heading">
+        <div>
+          <StatusBadge tone={provider.enabled ? "ok" : "pending"}>{provider.type || "auto"}</StatusBadge>
+          <h3><i className="ph-light ph-hard-drive"></i>{provider.name || provider.id}</h3>
+        </div>
+      </div>
+      <div className="policy-summary-grid" style={{ display: 'grid', gap: '8px', margin: '12px 0' }}>
+        <DataRow label="Provider ID">{provider.id}</DataRow>
+        <DataRow label="Base URL">{provider.base_url}</DataRow>
+        <DataRow label="Models">{providerModels.length}</DataRow>
+      </div>
+      <div className="context-list" style={{ marginTop: '12px' }}>
+        <strong className="eyebrow" style={{ display: 'block', marginBottom: '8px' }}>Exposed Models</strong>
+        {providerModels.map((model) => (
+          <button type="button" key={model.id} onClick={() => onSelectModel(model.id)}>
+            <span>{model.exposed_alias || model.id}</span>
+            <code>{model.upstream_model}</code>
+          </button>
+        ))}
+      </div>
+      <div className="context-list" style={{ marginTop: '12px' }}>
+        <strong className="eyebrow" style={{ display: 'block', marginBottom: '8px' }}>Associated Routes</strong>
+        {routes.map((route) => (
+          <button type="button" key={route.alias} onClick={() => onSelectRoute(route.alias)}>
+            <span>{route.alias}</span>
+            <code>{route.strategy}</code>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CLIContextPanel({ context, status, onCopy }) {
+  if (status.text) {
+    return <div className={`status-box ${status.type}`}>{status.text}</div>;
+  }
+  if (!context) {
+    return <EmptyState icon="ph-terminal-window" title="No CLI context">Select a model or route.</EmptyState>;
+  }
+  return (
+    <section className="operator-card cli-context-card">
+      <div className="card-heading">
+        <div>
+          <StatusBadge tone="ok">{context.selected_alias}</StatusBadge>
+          <h3><i className="ph-light ph-terminal-window"></i>CLI Setup</h3>
+        </div>
+      </div>
+      <div className="cli-context-grid">
+        {(context.profiles || []).map((profile) => (
+          <article className="cli-context-profile" key={profile.id}>
+            <div className="cli-context-title">
+              <strong>{profile.name}</strong>
+              <code>{profile.protocol}</code>
+            </div>
+            <pre>{profile.command}</pre>
+            <button type="button" className="btn-secondary" onClick={() => onCopy(profile.command)}>
+              <i className="ph-bold ph-copy"></i>Copy
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RoutePresetPanel({ presets, status, onApply }) {
+  return (
+    <section className="operator-card route-presets-card">
+      <div className="card-heading">
+        <div>
+          <StatusBadge tone={presets.length > 0 ? "ok" : "pending"}>{presets.length || "loading"}</StatusBadge>
+          <h3><i className="ph-light ph-stack-plus"></i>Route Presets</h3>
+        </div>
+      </div>
+      <div className="preset-grid">
+        {presets.map((preset) => (
+          <button type="button" className="route-preset-card" key={preset.id} onClick={() => onApply(preset)}>
+            <span>{preset.name}</span>
+            <code>{preset.default_alias} {"->"} {preset.upstream_model}</code>
+          </button>
+        ))}
+      </div>
+      {status.text && <div className={`status-box ${status.type}`}>{status.text}</div>}
+    </section>
   );
 }
 
@@ -504,6 +769,12 @@ function App() {
   const [cliToolsStatus, setCliToolsStatus] = useState({ text: "", type: "" });
   const [launchingTool, setLaunchingTool] = useState("");
   const [selectedModelId, setSelectedModelId] = useState("");
+  const [selectedProviderId, setSelectedProviderId] = useState("");
+  const [selectedRouteAlias, setSelectedRouteAlias] = useState("");
+  const [cliContext, setCliContext] = useState(null);
+  const [cliContextStatus, setCliContextStatus] = useState({ text: "", type: "" });
+  const [routePresets, setRoutePresets] = useState([]);
+  const [routePresetStatus, setRoutePresetStatus] = useState({ text: "", type: "" });
   const [policyInspect, setPolicyInspect] = useState(null);
   const [policyInspectLoading, setPolicyInspectLoading] = useState(false);
   const [policyInspectStatus, setPolicyInspectStatus] = useState({ text: "", type: "" });
@@ -587,6 +858,42 @@ function App() {
       });
   }, [apiHeaders]);
 
+  const loadRoutePresets = useCallback((cancelled = () => false) => {
+    return fetch("/internal/route-presets", { headers: apiHeaders })
+      .then((resp) => resp.ok ? resp.json() : resp.json().then((payload) => Promise.reject(new Error(payload.error || resp.statusText))))
+      .then((payload) => {
+        if (!cancelled()) {
+          setRoutePresets(payload.presets || []);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled()) {
+          setRoutePresetStatus({ text: err.message, type: "error" });
+        }
+      });
+  }, [apiHeaders]);
+
+  const loadCLIContext = useCallback((selection, cancelled = () => false) => {
+    const params = new URLSearchParams();
+    if (selection.route_alias) params.set("route_alias", selection.route_alias);
+    if (selection.model_id) params.set("model_id", selection.model_id);
+    if (!params.toString()) return Promise.resolve();
+    setCliContextStatus({ text: "", type: "" });
+    return fetch(`/internal/cli-context?${params.toString()}`, { headers: apiHeaders })
+      .then((resp) => resp.ok ? resp.json() : resp.json().then((payload) => Promise.reject(new Error(payload.error || resp.statusText))))
+      .then((payload) => {
+        if (!cancelled()) {
+          setCliContext(payload);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled()) {
+          setCliContext(null);
+          setCliContextStatus({ text: err.message, type: "error" });
+        }
+      });
+  }, [apiHeaders]);
+
   useEffect(() => {
     let cancelled = false;
     const isCancelled = () => cancelled;
@@ -635,10 +942,18 @@ function App() {
     if (activeTab === "cli-tools") {
       loadCliTools(isCancelled);
     }
+    if (activeTab === "models") {
+      loadRoutePresets(isCancelled);
+      if (selectedRouteAlias) {
+        loadCLIContext({ route_alias: selectedRouteAlias }, isCancelled);
+      } else if (selectedModelId) {
+        loadCLIContext({ model_id: selectedModelId }, isCancelled);
+      }
+    }
     return () => {
       cancelled = true;
     };
-  }, [activeTab, loadLogs, loadStatus, loadCliTools]);
+  }, [activeTab, loadLogs, loadStatus, loadCliTools, loadRoutePresets, loadCLIContext, selectedRouteAlias, selectedModelId]);
 
   useEffect(() => {
     if (activeTab === "logs" && logsEndRef.current) {
@@ -659,34 +974,66 @@ function App() {
   }, [config, selectedModelId]);
 
   useEffect(() => {
-    if (activeTab !== "models" || !selectedModelId) {
+    const providers = config?.providers || [];
+    if (providers.length === 0) {
+      setSelectedProviderId("");
       return;
     }
-    let cancelled = false;
+    if (!selectedProviderId || !providers.some((provider) => provider.id === selectedProviderId)) {
+      setSelectedProviderId(providers[0].id);
+    }
+  }, [config, selectedProviderId]);
+
+  useEffect(() => {
+    const routes = config?.routes || [];
+    if (routes.length === 0) {
+      setSelectedRouteAlias("");
+      return;
+    }
+    if (!selectedRouteAlias || !routes.some((route) => route.alias === selectedRouteAlias)) {
+      setSelectedRouteAlias(routes[0].alias);
+    }
+  }, [config, selectedRouteAlias]);
+
+  const loadPolicyInspect = useCallback((modelId, cancelled = () => false) => {
+    if (!modelId) return;
     setPolicyInspectLoading(true);
     setPolicyInspectStatus({ text: "", type: "" });
-    fetch(`/internal/policy/inspect?model_id=${encodeURIComponent(selectedModelId)}`, { headers: apiHeaders })
+    fetch(`/internal/policy/inspect?model_id=${encodeURIComponent(modelId)}`, { headers: apiHeaders })
       .then((resp) => resp.ok ? resp.json() : resp.json().then((payload) => Promise.reject(new Error(payload.error || resp.statusText))))
       .then((payload) => {
-        if (!cancelled) {
+        if (!cancelled()) {
           setPolicyInspect(payload);
         }
       })
       .catch((err) => {
-        if (!cancelled) {
+        if (!cancelled()) {
           setPolicyInspect(null);
           setPolicyInspectStatus({ text: err.message, type: "error" });
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!cancelled()) {
           setPolicyInspectLoading(false);
         }
       });
+  }, [apiHeaders]);
+
+  useEffect(() => {
+    if (activeTab !== "models" || !selectedModelId) {
+      return;
+    }
+    let cancelled = false;
+    loadPolicyInspect(selectedModelId, () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [activeTab, selectedModelId, apiHeaders]);
+  }, [activeTab, selectedModelId, loadPolicyInspect]);
+
+  const handleOverrideChanged = useCallback((modelId) => {
+    loadStatus();
+    loadPolicyInspect(modelId);
+  }, [loadStatus, loadPolicyInspect]);
 
   const providerNameOptions = useMemo(() => {
     const list = new Set();
@@ -903,6 +1250,40 @@ function App() {
     }
   };
 
+  const copyCLICommand = async (command) => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCliContextStatus({ text: "Command copied.", type: "ok" });
+    } catch {
+      setCliContextStatus({ text: command, type: "info" });
+    }
+  };
+
+  const applyRoutePreset = async (preset) => {
+    setRoutePresetStatus({ text: "Applying route preset...", type: "" });
+    fetch("/internal/route-presets/apply", {
+      method: "POST",
+      headers: apiHeaders,
+      body: JSON.stringify({
+        preset_id: preset.id,
+        provider_id: preset.id,
+        api_key_mode: "env",
+        route_alias: preset.default_route,
+        profile_name: preset.id,
+        append_to_route: true
+      })
+    })
+      .then((resp) => resp.ok ? resp.json() : resp.json().then((payload) => Promise.reject(new Error(payload.error || resp.statusText))))
+      .then((result) => {
+        setConfig(result.config);
+        setRoutePresetStatus({ text: `Preset applied: ${result.summary?.model_id || preset.id}`, type: "ok" });
+        loadStatus();
+      })
+      .catch((err) => {
+        setRoutePresetStatus({ text: err.message, type: "error" });
+      });
+  };
+
   const handleCopyActivation = async (tool) => {
     try {
       await navigator.clipboard.writeText(tool.activation_command || "arkroute activate claude");
@@ -1032,12 +1413,35 @@ function App() {
             </div>
             <div className="operator-grid configured-provider-grid">
               {providerCount > 0 ? (
-                config.providers.map((provider) => <ProviderCard key={provider.id} provider={provider} />)
+                config.providers.map((provider) => (
+                  <button className="provider-card-button" type="button" key={provider.id} onClick={() => setSelectedProviderId(provider.id)}>
+                    <ProviderCard provider={provider} />
+                  </button>
+                ))
               ) : (
                 <EmptyState icon="ph-database" title="No providers">Choose an agent preset above and save the gateway setup.</EmptyState>
               )}
             </div>
           </section>
+
+          <div className="detail-workbench">
+            <ProviderDetail
+              provider={(config?.providers || []).find((provider) => provider.id === selectedProviderId)}
+              models={config?.models || []}
+              routes={config?.routes || []}
+              onSelectModel={(modelId) => {
+                setSelectedModelId(modelId);
+                loadCLIContext({ model_id: modelId });
+                setActiveTab("models");
+              }}
+              onSelectRoute={(routeAlias) => {
+                setSelectedRouteAlias(routeAlias);
+                loadCLIContext({ route_alias: routeAlias });
+                setActiveTab("models");
+              }}
+            />
+            <CLIContextPanel context={cliContext} status={cliContextStatus} onCopy={copyCLICommand} />
+          </div>
         </div>
 
         <div className={`tab-content ${activeTab === "models" ? "active" : ""}`}>
@@ -1075,7 +1479,15 @@ function App() {
               <div className="stack-list">
                 {routeCount > 0 ? (
                   config.routes.map((route) => (
-                    <RouteItem key={route.alias} route={route} selectedModelId={selectedModelId} onSelectModel={setSelectedModelId} />
+                    <RouteItem
+                      key={route.alias}
+                      route={route}
+                      selectedModelId={selectedModelId}
+                      onSelectModel={(modelId) => {
+                        setSelectedModelId(modelId);
+                        loadCLIContext({ model_id: modelId });
+                      }}
+                    />
                   ))
                 ) : (
                   <EmptyState icon="ph-git-branch" title="No routes">Create a route alias during provider setup.</EmptyState>
@@ -1083,7 +1495,16 @@ function App() {
               </div>
             </section>
 
-            <PolicyInspector inspection={policyInspect} loading={policyInspectLoading} status={policyInspectStatus} />
+            <RoutePresetPanel presets={routePresets} status={routePresetStatus} onApply={applyRoutePreset} />
+            <CLIContextPanel context={cliContext} status={cliContextStatus} onCopy={copyCLICommand} />
+
+            <PolicyInspector
+              inspection={policyInspect}
+              loading={policyInspectLoading}
+              status={policyInspectStatus}
+              apiHeaders={apiHeaders}
+              onOverrideChanged={handleOverrideChanged}
+            />
           </div>
         </div>
 
