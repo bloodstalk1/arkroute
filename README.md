@@ -172,6 +172,8 @@ droidrun run --provider OpenAILike --model "$ARKROUTE_OPENAI_MODEL" --api_base "
 
 All OpenAI-compatible profiles use Arkroute's local `/v1` gateway and the local `server.client_key`, not an upstream provider API key.
 
+For the full multi-CLI mental model, route alias examples, policy precedence, and E2E checklist, see [Multi-CLI Routing With Arkroute](docs/multi-cli-routing.md).
+
 The OpenAI-compatible surface currently supports:
 
 - `GET /v1/models`

@@ -206,6 +206,8 @@ response = client.responses.create(
 )
 ```
 
+For provider/model-first setup and route presets, use the panel's Providers and Routes tabs. CLI snippets should only select a route or exposed model alias; provider quirks belong in compatibility policies. See [Multi-CLI Routing With Arkroute](multi-cli-routing.md).
+
 ## Error Shape
 
 OpenAI-compatible ingress errors use this shape:
