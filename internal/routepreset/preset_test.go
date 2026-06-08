@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/policyedit"
 )
 
 func TestPresetsCoverRequiredFamilies(t *testing.T) {
@@ -57,11 +58,21 @@ func TestApplyPresetAddsProviderModelRouteAndProfile(t *testing.T) {
 	if out.Profiles["deepseek"] != "sonnet" {
 		t.Fatalf("profiles = %+v, want deepseek -> sonnet", out.Profiles)
 	}
-	if out.Models[0].Reasoning.AutoEnable == nil || !*out.Models[0].Reasoning.AutoEnable {
-		t.Fatalf("Reasoning.AutoEnable not set for applied preset")
+	policyID := policyedit.StableModelPolicyID(out.Models[0].ID)
+	found := false
+	for _, p := range out.CompatibilityPolicies {
+		if p.ID == policyID {
+			found = true
+			if p.Reasoning.AutoEnable == nil || !*p.Reasoning.AutoEnable {
+				t.Fatalf("CompatibilityPolicy.Reasoning.AutoEnable not set")
+			}
+			if p.Reasoning.Replay == nil || !*p.Reasoning.Replay {
+				t.Fatalf("CompatibilityPolicy.Reasoning.Replay not set")
+			}
+		}
 	}
-	if out.Models[0].Reasoning.Replay == nil || !*out.Models[0].Reasoning.Replay {
-		t.Fatalf("Reasoning.Replay not set for applied preset")
+	if !found {
+		t.Fatalf("compatibility policy %q not found in %+v", policyID, out.CompatibilityPolicies)
 	}
 	if err := out.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)

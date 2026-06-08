@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/policyedit"
 	setupcore "github.com/bloodstalk1/arkroute/internal/setup"
 )
 
@@ -100,15 +101,26 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 		val := true
 		replay = &val
 	}
+	if autoEnable != nil || replay != nil {
+		policyID := policyedit.StableModelPolicyID(modelID)
+		cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, policyID)
+		cfg.CompatibilityPolicies = append(cfg.CompatibilityPolicies, config.CompatibilityPolicyConfig{
+			ID: policyID,
+			Match: config.CompatibilityMatchConfig{
+				ProviderIDs:    []string{providerID},
+				UpstreamModels: []string{preset.UpstreamModel},
+			},
+			Reasoning: config.CompatibilityReasoningConfig{
+				AutoEnable: autoEnable,
+				Replay:     replay,
+			},
+		})
+	}
 	cfg.Models = append(cfg.Models, config.ModelConfig{
 		ID: modelID, ProviderID: providerID, UpstreamModel: preset.UpstreamModel,
 		ExposedAlias: modelAlias, ClaudeDiscoveryAlias: discoveryAlias,
 		DisplayName: providerName + " " + preset.UpstreamModel,
 		Capabilities: preset.Capabilities, Enabled: true,
-		Reasoning: config.ReasoningConfig{
-			AutoEnable: autoEnable,
-			Replay:     replay,
-		},
 	})
 	cfg.Routes = upsertRoute(cfg.Routes, routeAlias, modelID, req.AppendToRoute)
 	if cfg.Profiles == nil {
@@ -161,8 +173,20 @@ func removeExisting(cfg config.Config, providerID string, modelID string, confir
 	for i := range cfg.Routes {
 		cfg.Routes[i].Targets = filterTargets(cfg.Routes[i].Targets, modelID)
 	}
+	cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, policyedit.StableModelPolicyID(modelID))
 	return cfg
 }
+
+func removePolicyByID(policies []config.CompatibilityPolicyConfig, id string) []config.CompatibilityPolicyConfig {
+	out := policies[:0]
+	for _, p := range policies {
+		if p.ID != id {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 
 func upsertRoute(routes []config.RouteConfig, alias string, modelID string, appendToRoute bool) []config.RouteConfig {
 	for i := range routes {
