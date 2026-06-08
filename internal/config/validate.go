@@ -39,6 +39,8 @@ func (cfg Config) Validate() error {
 	}
 	if strings.TrimSpace(cfg.Server.ClientKey) == "" {
 		fields["server.client_key"] = "must be non-empty"
+	} else if cfg.Server.ClientKey == "[redacted]" {
+		fields["server.client_key"] = "cannot contain [redacted] marker"
 	}
 	validateCompatibilityPolicies(fields, cfg.CompatibilityPolicies)
 
@@ -56,6 +58,14 @@ func (cfg Config) Validate() error {
 		}
 		if _, err := url.ParseRequestURI(provider.BaseURL); err != nil {
 			fields[path+".base_url"] = "must be an absolute URL"
+		}
+		if provider.APIKey == "[redacted]" {
+			fields[path+".api_key"] = "cannot contain [redacted] marker"
+		}
+		for k, v := range provider.Headers {
+			if v == "[redacted]" {
+				fields[fmt.Sprintf("%s.headers[%s]", path, k)] = "cannot contain [redacted] marker"
+			}
 		}
 		providers[provider.ID] = provider
 		if provider.Enabled {
@@ -174,15 +184,19 @@ func validateCompatibilityPolicies(fields map[string]string, policies []Compatib
 }
 
 func validateCompatibilityMatch(fields map[string]string, prefix string, match CompatibilityMatchConfig) {
-	hasMatcher := len(match.ProviderIDContains) > 0 ||
+	hasMatcher := len(match.ProviderIDs) > 0 ||
+		len(match.ProviderIDContains) > 0 ||
 		len(match.ProviderTypeContains) > 0 ||
+		len(match.UpstreamModels) > 0 ||
 		len(match.UpstreamModelContains) > 0 ||
 		len(match.UpstreamModelPatterns) > 0
 	if !hasMatcher {
 		fields[prefix] = "must define at least one matcher"
 	}
+	validateNonEmptyList(fields, prefix+".provider_ids", match.ProviderIDs)
 	validateNonEmptyList(fields, prefix+".provider_id_contains", match.ProviderIDContains)
 	validateNonEmptyList(fields, prefix+".provider_type_contains", match.ProviderTypeContains)
+	validateNonEmptyList(fields, prefix+".upstream_models", match.UpstreamModels)
 	validateNonEmptyList(fields, prefix+".upstream_model_contains", match.UpstreamModelContains)
 	for i, pattern := range match.UpstreamModelPatterns {
 		path := fmt.Sprintf("%s.upstream_model_patterns[%d]", prefix, i)

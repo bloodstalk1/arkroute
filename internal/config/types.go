@@ -73,8 +73,10 @@ type CompatibilityPolicyConfig struct {
 }
 
 type CompatibilityMatchConfig struct {
+	ProviderIDs           []string `yaml:"provider_ids,omitempty" json:"provider_ids,omitempty"`
 	ProviderIDContains    []string `yaml:"provider_id_contains,omitempty" json:"provider_id_contains,omitempty"`
 	ProviderTypeContains  []string `yaml:"provider_type_contains,omitempty" json:"provider_type_contains,omitempty"`
+	UpstreamModels        []string `yaml:"upstream_models,omitempty" json:"upstream_models,omitempty"`
 	UpstreamModelContains []string `yaml:"upstream_model_contains,omitempty" json:"upstream_model_contains,omitempty"`
 	UpstreamModelPatterns []string `yaml:"upstream_model_patterns,omitempty" json:"upstream_model_patterns,omitempty"`
 }

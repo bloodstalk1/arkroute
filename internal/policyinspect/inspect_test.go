@@ -79,8 +79,8 @@ func TestInspectModelIncludesUserOverrideMetadata(t *testing.T) {
 	cfg.CompatibilityPolicies = []config.CompatibilityPolicyConfig{{
 		ID: "model-openrouter-sonnet-compat",
 		Match: config.CompatibilityMatchConfig{
-			ProviderIDContains:    []string{cfg.Models[0].ProviderID},
-			UpstreamModelPatterns: []string{cfg.Models[0].UpstreamModel},
+			ProviderIDs:    []string{cfg.Models[0].ProviderID},
+			UpstreamModels: []string{cfg.Models[0].UpstreamModel},
 		},
 		Reasoning: config.CompatibilityReasoningConfig{
 			Replay: &falseValue,

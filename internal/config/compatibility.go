@@ -97,17 +97,25 @@ func mergeCompatibilityReasoning(current ReasoningConfig, policy CompatibilityRe
 }
 
 func compatibilityPolicyMatches(provider ProviderConfig, model ModelConfig, match CompatibilityMatchConfig) bool {
-	hasMatcher := len(match.ProviderIDContains) > 0 ||
+	hasMatcher := len(match.ProviderIDs) > 0 ||
+		len(match.ProviderIDContains) > 0 ||
 		len(match.ProviderTypeContains) > 0 ||
+		len(match.UpstreamModels) > 0 ||
 		len(match.UpstreamModelContains) > 0 ||
 		len(match.UpstreamModelPatterns) > 0
 	if !hasMatcher {
+		return false
+	}
+	if !equalsAnyLower(provider.ID, match.ProviderIDs) {
 		return false
 	}
 	if !containsAnyLower(provider.ID, match.ProviderIDContains) {
 		return false
 	}
 	if !containsAnyLower(provider.Type, match.ProviderTypeContains) {
+		return false
+	}
+	if !equalsAnyLower(model.UpstreamModel, match.UpstreamModels) {
 		return false
 	}
 	if !containsAnyLower(model.UpstreamModel, match.UpstreamModelContains) {
@@ -117,6 +125,20 @@ func compatibilityPolicyMatches(provider ProviderConfig, model ModelConfig, matc
 		return false
 	}
 	return true
+}
+
+func equalsAnyLower(value string, needles []string) bool {
+	if len(needles) == 0 {
+		return true
+	}
+	value = strings.ToLower(strings.TrimSpace(value))
+	for _, needle := range needles {
+		needle = strings.ToLower(strings.TrimSpace(needle))
+		if needle != "" && value == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func containsAnyLower(value string, needles []string) bool {

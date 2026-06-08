@@ -60,8 +60,8 @@ func UpsertModelOverride(cfg config.Config, input OverrideInput) (config.Config,
 	policy := config.CompatibilityPolicyConfig{
 		ID: StableModelPolicyID(model.ID),
 		Match: config.CompatibilityMatchConfig{
-			ProviderIDContains:    []string{model.ProviderID},
-			UpstreamModelPatterns: []string{model.UpstreamModel},
+			ProviderIDs:    []string{model.ProviderID},
+			UpstreamModels: []string{model.UpstreamModel},
 		},
 		Reasoning: config.CompatibilityReasoningConfig{
 			AutoEnable:     cloneBool(input.AutoEnable),

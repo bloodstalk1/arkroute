@@ -174,6 +174,33 @@ func TestValidateRejectsInvalidCompatibilityPolicy(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsRedactedMarkers(t *testing.T) {
+	cfg := MinimalValidConfig("ark-local-key")
+
+	// Test client key
+	cfg.Server.ClientKey = "[redacted]"
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "server.client_key: cannot contain [redacted] marker") {
+		t.Fatalf("expected client_key error, got %v", err)
+	}
+	cfg.Server.ClientKey = "valid-key"
+
+	// Test provider API key
+	cfg.Providers[0].APIKey = "[redacted]"
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "providers[0].api_key: cannot contain [redacted] marker") {
+		t.Fatalf("expected api_key error, got %v", err)
+	}
+	cfg.Providers[0].APIKey = "valid-api-key"
+
+	// Test provider headers
+	cfg.Providers[0].Headers = map[string]string{"X-Header": "[redacted]"}
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "providers[0].headers[X-Header]: cannot contain [redacted] marker") {
+		t.Fatalf("expected header error, got %v", err)
+	}
+}
+
 func TestBuildSnapshotIndexesAliases(t *testing.T) {
 	cfg := MinimalValidConfig("ark-local-key")
 	snapshot, err := BuildSnapshot(cfg)
