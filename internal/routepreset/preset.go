@@ -12,16 +12,18 @@ import (
 var ErrConflict = errors.New("preset target already exists")
 
 type Preset struct {
-	ID              string              `json:"id"`
-	Name            string              `json:"name"`
-	ProviderType    string              `json:"provider_type"`
-	BaseURL         string              `json:"base_url"`
-	UpstreamModel   string              `json:"upstream_model"`
-	DefaultAlias    string              `json:"default_alias"`
-	DefaultRoute    string              `json:"default_route"`
-	Capabilities    config.Capabilities `json:"capabilities"`
-	ReasoningReplay bool                `json:"reasoning_replay"`
-	AutoThinking    bool                `json:"auto_thinking"`
+	ID                string              `json:"id"`
+	Name              string              `json:"name"`
+	ProviderType      string              `json:"provider_type"`
+	BaseURL           string              `json:"base_url"`
+	UpstreamModel     string              `json:"upstream_model"`
+	DefaultAlias      string              `json:"default_alias"`
+	DefaultRoute      string              `json:"default_route"`
+	DefaultProviderID string              `json:"default_provider_id"`
+	DefaultEnvName    string              `json:"default_env_name"`
+	Capabilities      config.Capabilities `json:"capabilities"`
+	ReasoningReplay   bool                `json:"reasoning_replay"`
+	AutoThinking      bool                `json:"auto_thinking"`
 }
 
 type ApplyRequest struct {
@@ -53,13 +55,13 @@ func Presets() []Preset {
 		ContextWindow: 200000, MaxOutputTokens: 8192,
 	}
 	return []Preset{
-		{ID: "deepseek-v4-pro", Name: "DeepSeek V4 Pro", ProviderType: "openai_compatible", BaseURL: "https://api.deepseek.com/v1", UpstreamModel: "deepseek-v4-pro", DefaultAlias: "deepseek-v4-pro", DefaultRoute: "sonnet", Capabilities: caps, ReasoningReplay: true, AutoThinking: true},
-		{ID: "qwen-coder", Name: "Qwen Coder / Thinking", ProviderType: "openai_compatible", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", UpstreamModel: "qwen3-coder-plus", DefaultAlias: "qwen-coder", DefaultRoute: "sonnet", Capabilities: caps, ReasoningReplay: true},
-		{ID: "glm", Name: "GLM", ProviderType: "openai_compatible", BaseURL: "https://open.bigmodel.cn/api/paas/v4", UpstreamModel: "glm-4.6", DefaultAlias: "glm", DefaultRoute: "sonnet", Capabilities: caps, ReasoningReplay: true},
-		{ID: "kimi-k2", Name: "Kimi K2", ProviderType: "openai_compatible", BaseURL: "https://api.moonshot.ai/v1", UpstreamModel: "kimi-k2-0905-preview", DefaultAlias: "kimi-k2", DefaultRoute: "sonnet", Capabilities: caps, ReasoningReplay: true},
-		{ID: "minimax", Name: "MiniMax", ProviderType: "openai_compatible", BaseURL: "https://api.minimax.io/v1", UpstreamModel: "minimax-m2", DefaultAlias: "minimax", DefaultRoute: "sonnet", Capabilities: caps},
-		{ID: "claude-openrouter", Name: "Claude via OpenRouter", ProviderType: "openai_compatible", BaseURL: "https://openrouter.ai/api/v1", UpstreamModel: "anthropic/claude-sonnet-4.5", DefaultAlias: "sonnet-or", DefaultRoute: "sonnet", Capabilities: caps},
-		{ID: "generic-openai-compatible", Name: "Generic OpenAI-compatible", ProviderType: "openai_compatible", BaseURL: "https://example.com/v1", UpstreamModel: "provider/model", DefaultAlias: "custom-model", DefaultRoute: "sonnet", Capabilities: caps},
+		{ID: "deepseek-v4-pro", Name: "DeepSeek V4 Pro", ProviderType: "openai_compatible", BaseURL: "https://api.deepseek.com/v1", UpstreamModel: "deepseek-v4-pro", DefaultAlias: "deepseek-v4-pro", DefaultRoute: "sonnet", DefaultProviderID: "deepseek", DefaultEnvName: "DEEPSEEK_API_KEY", Capabilities: caps, ReasoningReplay: true, AutoThinking: true},
+		{ID: "qwen-coder", Name: "Qwen Coder / Thinking", ProviderType: "openai_compatible", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", UpstreamModel: "qwen3-coder-plus", DefaultAlias: "qwen-coder", DefaultRoute: "sonnet", DefaultProviderID: "qwen", DefaultEnvName: "DASHSCOPE_API_KEY", Capabilities: caps, ReasoningReplay: true},
+		{ID: "glm", Name: "GLM", ProviderType: "openai_compatible", BaseURL: "https://open.bigmodel.cn/api/paas/v4", UpstreamModel: "glm-4.6", DefaultAlias: "glm", DefaultRoute: "sonnet", DefaultProviderID: "glm", DefaultEnvName: "ZHIPU_API_KEY", Capabilities: caps, ReasoningReplay: true},
+		{ID: "kimi-k2", Name: "Kimi K2", ProviderType: "openai_compatible", BaseURL: "https://api.moonshot.ai/v1", UpstreamModel: "kimi-k2-0905-preview", DefaultAlias: "kimi-k2", DefaultRoute: "sonnet", DefaultProviderID: "kimi", DefaultEnvName: "MOONSHOT_API_KEY", Capabilities: caps, ReasoningReplay: true},
+		{ID: "minimax", Name: "MiniMax", ProviderType: "openai_compatible", BaseURL: "https://api.minimax.io/v1", UpstreamModel: "minimax-m2", DefaultAlias: "minimax", DefaultRoute: "sonnet", DefaultProviderID: "minimax", DefaultEnvName: "MINIMAX_API_KEY", Capabilities: caps},
+		{ID: "claude-openrouter", Name: "Claude via OpenRouter", ProviderType: "openai_compatible", BaseURL: "https://openrouter.ai/api/v1", UpstreamModel: "anthropic/claude-sonnet-4.5", DefaultAlias: "sonnet-or", DefaultRoute: "sonnet", DefaultProviderID: "openrouter", DefaultEnvName: "OPENROUTER_API_KEY", Capabilities: caps},
+		{ID: "generic-openai-compatible", Name: "Generic OpenAI-compatible", ProviderType: "openai_compatible", BaseURL: "https://example.com/v1", UpstreamModel: "provider/model", DefaultAlias: "custom-model", DefaultRoute: "sonnet", DefaultProviderID: "openai-compatible", DefaultEnvName: "OPENAI_API_KEY", Capabilities: caps},
 	}
 }
 
@@ -68,7 +70,7 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 	if !ok {
 		return config.Config{}, ApplySummary{}, fmt.Errorf("unknown route preset %q", req.PresetID)
 	}
-	providerID := firstNonEmpty(req.ProviderID, preset.ID)
+	providerID := firstNonEmpty(req.ProviderID, preset.DefaultProviderID, preset.ID)
 	providerName := firstNonEmpty(req.ProviderName, preset.Name)
 	routeAlias := firstNonEmpty(req.RouteAlias, preset.DefaultRoute)
 	modelAlias := preset.DefaultAlias
@@ -79,7 +81,7 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 	cfg = removeExisting(cfg, providerID, modelID, req.ConfirmOverwrite)
 	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
 		ID: providerID, Name: providerName, Type: preset.ProviderType, BaseURL: preset.BaseURL,
-		APIKey: providerAPIKey(req, providerID), Enabled: true,
+		APIKey: providerAPIKey(req, preset, providerID), Enabled: true,
 	})
 	discoveryAlias := "claude-sonnet-4-20250514"
 	for _, m := range cfg.Models {
@@ -88,11 +90,25 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 			break
 		}
 	}
+	var autoEnable *bool
+	if preset.AutoThinking {
+		val := true
+		autoEnable = &val
+	}
+	var replay *bool
+	if preset.ReasoningReplay {
+		val := true
+		replay = &val
+	}
 	cfg.Models = append(cfg.Models, config.ModelConfig{
 		ID: modelID, ProviderID: providerID, UpstreamModel: preset.UpstreamModel,
 		ExposedAlias: modelAlias, ClaudeDiscoveryAlias: discoveryAlias,
 		DisplayName: providerName + " " + preset.UpstreamModel,
 		Capabilities: preset.Capabilities, Enabled: true,
+		Reasoning: config.ReasoningConfig{
+			AutoEnable: autoEnable,
+			Replay:     replay,
+		},
 	})
 	cfg.Routes = upsertRoute(cfg.Routes, routeAlias, modelID, req.AppendToRoute)
 	if cfg.Profiles == nil {
@@ -168,11 +184,11 @@ func upsertRoute(routes []config.RouteConfig, alias string, modelID string, appe
 	})
 }
 
-func providerAPIKey(req ApplyRequest, providerID string) string {
+func providerAPIKey(req ApplyRequest, preset Preset, providerID string) string {
 	if req.APIKeyMode == setupcore.APIKeyModeConfig {
 		return req.APIKey
 	}
-	return "env:" + firstNonEmpty(req.EnvName, setupcore.EnvNameForProvider(providerID))
+	return "env:" + firstNonEmpty(req.EnvName, preset.DefaultEnvName, setupcore.EnvNameForProvider(providerID))
 }
 
 func firstNonEmpty(values ...string) string {

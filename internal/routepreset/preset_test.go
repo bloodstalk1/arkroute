@@ -57,6 +57,12 @@ func TestApplyPresetAddsProviderModelRouteAndProfile(t *testing.T) {
 	if out.Profiles["deepseek"] != "sonnet" {
 		t.Fatalf("profiles = %+v, want deepseek -> sonnet", out.Profiles)
 	}
+	if out.Models[0].Reasoning.AutoEnable == nil || !*out.Models[0].Reasoning.AutoEnable {
+		t.Fatalf("Reasoning.AutoEnable not set for applied preset")
+	}
+	if out.Models[0].Reasoning.Replay == nil || !*out.Models[0].Reasoning.Replay {
+		t.Fatalf("Reasoning.Replay not set for applied preset")
+	}
 	if err := out.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}

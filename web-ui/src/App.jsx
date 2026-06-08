@@ -1266,10 +1266,11 @@ function App() {
       headers: apiHeaders,
       body: JSON.stringify({
         preset_id: preset.id,
-        provider_id: preset.id,
+        provider_id: preset.default_provider_id || preset.id,
+        env_name: preset.default_env_name || "",
         api_key_mode: "env",
         route_alias: preset.default_route,
-        profile_name: preset.id,
+        profile_name: preset.default_provider_id || preset.id,
         append_to_route: true
       })
     })
