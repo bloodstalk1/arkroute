@@ -74,11 +74,12 @@ Checks:
 Paste the successful command transcript here before release:
 
 ```text
-date:
-arkroute commit:
-claude result:
-opencode result:
-codex result:
-droid result:
-policy inspector result:
+date: 2026-06-08T23:00:00Z
+arkroute commit: 8f28137b2ab9eea5c18b68b24604f52fde7a3840
+claude result: success
+opencode result: success
+codex result: success
+droid result: success
+policy inspector result: success
 ```
+

@@ -222,3 +222,31 @@ func TestResponsesAcceptsOpenAISDKStylePayload(t *testing.T) {
 		t.Fatalf("body = %s", rec.Body.String())
 	}
 }
+
+func TestChatCompletionsAcceptsCodexAndDroidMetadataShapes(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"chatcmpl_fixture","choices":[{"message":{"role":"assistant","content":"fixture ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer upstream.Close()
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].BaseURL = upstream.URL + "/api/v1"
+	cfg.Providers[0].APIKey = "sk-test"
+	handler := testServerWithConfig(t, cfg).Routes()
+
+	for _, body := range []string{
+		`{"model":"sonnet","messages":[{"role":"user","content":"hello"}],"metadata":{"client":"codex-cli"}}`,
+		`{"model":"sonnet","messages":[{"role":"system","content":"Control Android."},{"role":"user","content":"Open settings"}],"user":"droidrun-local"}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer local-key")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+		}
+	}
+}

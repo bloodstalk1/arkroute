@@ -1129,6 +1129,22 @@ func TestGatewayMountsRoutePresetsEndpoint(t *testing.T) {
 	}
 }
 
-
-
+func TestModelsIncludesRouteAndExposedAliases(t *testing.T) {
+	cfg := config.MinimalValidConfig("local-key")
+	path := writeClaudeServerConfig(t, cfg)
+	state := testStateFromPath(t, path, cfg.Server.Host, cfg.Server.Port)
+	server := NewServer(Deps{State: state})
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	server.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"id":"sonnet"`, `"id":"sonnet-or"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("body missing %s: %s", want, rec.Body.String())
+		}
+	}
+}
 
