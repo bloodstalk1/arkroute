@@ -472,3 +472,51 @@ func TestCLIContextReturnsProfilesForRoute(t *testing.T) {
 		t.Fatalf("response leaked provider secret: %s", rec.Body.String())
 	}
 }
+
+func TestRoutePresetsListRequiresSessionToken(t *testing.T) {
+	store := NewSessionStore(time.Minute)
+	handler := Routes(Deps{Sessions: store})
+	req := httptest.NewRequest(http.MethodGet, "/internal/route-presets", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestRoutePresetApplyWritesBackupAndReloads(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := savePanelConfig(path, config.BootstrapLocalConfig("local-key")); err != nil {
+		t.Fatal(err)
+	}
+	reloads := 0
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{
+		Sessions: store, ConfigPath: path,
+		OnSave: func() error { reloads++; return nil },
+	})
+	body := strings.NewReader(`{"preset_id":"deepseek-v4-pro","provider_id":"deepseek","api_key_mode":"env","env_name":"DEEPSEEK_API_KEY","route_alias":"sonnet","profile_name":"deepseek"}`)
+	req := httptest.NewRequest(http.MethodPost, "/internal/route-presets/apply", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if reloads != 1 {
+		t.Fatalf("reloads = %d, want 1", reloads)
+	}
+	if !strings.Contains(rec.Body.String(), `"provider_id":"deepseek"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+	updated, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Providers) != 1 || updated.Profiles["deepseek"] != "sonnet" {
+		t.Fatalf("updated config = %+v", updated)
+	}
+}
+

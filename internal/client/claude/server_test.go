@@ -1113,5 +1113,22 @@ func TestGatewayMountsCLIContextEndpoint(t *testing.T) {
 	}
 }
 
+func TestGatewayMountsRoutePresetsEndpoint(t *testing.T) {
+	server := NewServer(Deps{})
+	handler := server.Routes()
+	token := server.sessions.Issue()
+	req := httptest.NewRequest(http.MethodGet, "/internal/route-presets", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"deepseek-v4-pro"`) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+
 
 

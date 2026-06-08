@@ -47,6 +47,8 @@ func Routes(deps Deps) http.Handler {
 	mux.HandleFunc("/internal/policy/inspect", withSetupToken(deps.Sessions, handlePolicyInspect(deps.ConfigPath)))
 	mux.HandleFunc("/internal/policy/override", withSetupToken(deps.Sessions, handlePolicyOverride(deps.ConfigPath, deps.OnSave)))
 	mux.HandleFunc("/internal/cli-context", withSetupToken(deps.Sessions, handleCLIContext(deps.ConfigPath)))
+	mux.HandleFunc("/internal/route-presets", withSetupToken(deps.Sessions, handleRoutePresets()))
+	mux.HandleFunc("/internal/route-presets/apply", withSetupToken(deps.Sessions, handleRoutePresetApply(deps.ConfigPath, deps.OnSave)))
 	return mux
 }
 
