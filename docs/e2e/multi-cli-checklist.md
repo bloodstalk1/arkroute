@@ -74,8 +74,8 @@ Checks:
 Paste the successful command transcript here before release:
 
 ```text
-date: 2026-06-08T23:00:00Z
-arkroute commit: 8f28137b2ab9eea5c18b68b24604f52fde7a3840
+date: 2026-06-09T05:55:00+07:00
+arkroute commit: 13d104384fa95c5a19d281ec12a599c7bd8bf104
 claude result: success
 opencode result: success
 codex result: success
