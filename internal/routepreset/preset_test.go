@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
-	"github.com/bloodstalk1/arkroute/internal/policyedit"
 )
 
 func TestPresetsCoverRequiredFamilies(t *testing.T) {
@@ -58,7 +58,7 @@ func TestApplyPresetAddsProviderModelRouteAndProfile(t *testing.T) {
 	if out.Profiles["deepseek"] != "sonnet" {
 		t.Fatalf("profiles = %+v, want deepseek -> sonnet", out.Profiles)
 	}
-	policyID := policyedit.StableModelPolicyID(out.Models[0].ID)
+	policyID := compatpolicy.StableModelPolicyID(out.Models[0].ID)
 	found := false
 	for _, p := range out.CompatibilityPolicies {
 		if p.ID == policyID {

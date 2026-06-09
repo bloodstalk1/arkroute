@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
-	"github.com/bloodstalk1/arkroute/internal/policyedit"
 	setupcore "github.com/bloodstalk1/arkroute/internal/setup"
 )
 
@@ -102,7 +102,7 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 		replay = &val
 	}
 	if autoEnable != nil || replay != nil {
-		policyID := policyedit.StableModelPolicyID(modelID)
+		policyID := compatpolicy.StableModelPolicyID(modelID)
 		cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, policyID)
 		cfg.CompatibilityPolicies = append(cfg.CompatibilityPolicies, config.CompatibilityPolicyConfig{
 			ID: policyID,
@@ -173,7 +173,7 @@ func removeExisting(cfg config.Config, providerID string, modelID string, confir
 	for i := range cfg.Routes {
 		cfg.Routes[i].Targets = filterTargets(cfg.Routes[i].Targets, modelID)
 	}
-	cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, policyedit.StableModelPolicyID(modelID))
+	cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, compatpolicy.StableModelPolicyID(modelID))
 	return cfg
 }
 

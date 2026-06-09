@@ -89,15 +89,10 @@ func handleLater(path string, onSave func() error) http.HandlerFunc {
 			return
 		}
 		cfg := config.BootstrapLocalConfig(key)
-		if err := savePanelConfig(path, cfg); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"schema_version": 1, "error": err.Error()})
+		_, err = NewConfigStore(path).SaveAndReload(cfg, onSave)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
 			return
-		}
-		if onSave != nil {
-			if err := onSave(); err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": "reload failed: " + err.Error()})
-				return
-			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"schema_version": 1, "status": "saved", "config": config.Redacted(cfg)})
 	}
@@ -125,15 +120,10 @@ func handleProvider(path string, claudeWriter func(config.Config) error, onSave 
 			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
 			return
 		}
-		if err := savePanelConfig(path, cfg); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"schema_version": 1, "error": err.Error()})
+		_, err = NewConfigStore(path).SaveAndReload(cfg, onSave)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
 			return
-		}
-		if onSave != nil {
-			if err := onSave(); err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": "reload failed: " + err.Error()})
-				return
-			}
 		}
 		claudeActivated := false
 		var claudeErr string

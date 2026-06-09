@@ -43,12 +43,8 @@ func handleRoutePresetApply(path string, onSave func() error) http.HandlerFunc {
 			writeJSON(w, routePresetStatus(err), map[string]any{"schema_version": 1, "error": err.Error()})
 			return
 		}
-		result, err := store.Save(cfg)
+		result, err := store.SaveAndReload(cfg, onSave)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
-			return
-		}
-		if err := reloadAfterPanelSave(onSave); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
 			return
 		}

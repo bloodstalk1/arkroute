@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
@@ -27,28 +28,6 @@ type UserOverride struct {
 	OmitToolChoice *bool  `json:"omit_tool_choice,omitempty"`
 }
 
-func StableModelPolicyID(modelID string) string {
-	clean := strings.ToLower(strings.TrimSpace(modelID))
-	var b strings.Builder
-	lastDash := false
-	for _, r := range clean {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			lastDash = false
-			continue
-		}
-		if !lastDash {
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	value := strings.Trim(b.String(), "-")
-	if value == "" {
-		value = "model"
-	}
-	return "model-" + value + "-compat"
-}
-
 func UpsertModelOverride(cfg config.Config, input OverrideInput) (config.Config, config.CompatibilityPolicyConfig, error) {
 	model, err := findModel(cfg, input.ModelID)
 	if err != nil {
@@ -58,7 +37,7 @@ func UpsertModelOverride(cfg config.Config, input OverrideInput) (config.Config,
 		return config.Config{}, config.CompatibilityPolicyConfig{}, err
 	}
 	policy := config.CompatibilityPolicyConfig{
-		ID: StableModelPolicyID(model.ID),
+		ID: compatpolicy.StableModelPolicyID(model.ID),
 		Match: config.CompatibilityMatchConfig{
 			ProviderIDs:    []string{model.ProviderID},
 			UpstreamModels: []string{model.UpstreamModel},
@@ -83,7 +62,7 @@ func DeleteModelOverride(cfg config.Config, modelID string) (config.Config, stri
 	if _, err := findModel(cfg, modelID); err != nil {
 		return config.Config{}, "", err
 	}
-	policyID := StableModelPolicyID(modelID)
+	policyID := compatpolicy.StableModelPolicyID(modelID)
 	cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, policyID)
 	if err := cfg.Validate(); err != nil {
 		return config.Config{}, "", err
@@ -92,7 +71,7 @@ func DeleteModelOverride(cfg config.Config, modelID string) (config.Config, stri
 }
 
 func FindModelOverride(cfg config.Config, modelID string) UserOverride {
-	policyID := StableModelPolicyID(modelID)
+	policyID := compatpolicy.StableModelPolicyID(modelID)
 	for _, policy := range cfg.CompatibilityPolicies {
 		if policy.ID == policyID {
 			return UserOverride{

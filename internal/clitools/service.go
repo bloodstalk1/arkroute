@@ -256,6 +256,9 @@ func DefaultStartProcess(spec ProcessSpec) (int, error) {
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}
+	go func() {
+		_ = cmd.Wait()
+	}()
 	return cmd.Process.Pid, nil
 }
 

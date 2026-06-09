@@ -92,6 +92,47 @@ func (s ConfigStore) Save(cfg config.Config) (ConfigSaveResult, error) {
 	return ConfigSaveResult{BackupPath: backupPath}, nil
 }
 
+func (s ConfigStore) SaveAndReload(cfg config.Config, onSave func() error) (ConfigSaveResult, error) {
+	if err := cfg.Validate(); err != nil {
+		return ConfigSaveResult{}, err
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return ConfigSaveResult{}, err
+	}
+	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
+		return ConfigSaveResult{}, err
+	}
+	hasPrevious := true
+	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) {
+		hasPrevious = false
+	}
+	backupPath, err := s.createBackup()
+	if err != nil {
+		return ConfigSaveResult{}, err
+	}
+	if err := atomicWriteFile(s.Path, data, 0o600); err != nil {
+		return ConfigSaveResult{}, err
+	}
+	if onSave != nil {
+		if err := onSave(); err != nil {
+			if hasPrevious && backupPath != "" {
+				backupData, readErr := os.ReadFile(backupPath)
+				if readErr == nil {
+					_ = atomicWriteFile(s.Path, backupData, 0o600)
+				}
+			} else {
+				_ = os.Remove(s.Path)
+			}
+			return ConfigSaveResult{}, fmt.Errorf("reload failed: %w (config rolled back)", err)
+		}
+	}
+	if err := s.PruneBackups(); err != nil {
+		return ConfigSaveResult{BackupPath: backupPath}, err
+	}
+	return ConfigSaveResult{BackupPath: backupPath}, nil
+}
+
 func (s ConfigStore) PruneBackups() error {
 	limit := s.limit()
 	if limit < 1 {

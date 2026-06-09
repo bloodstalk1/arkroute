@@ -3,13 +3,14 @@ package policyedit_test
 import (
 	"testing"
 
+	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/policyedit"
 	"github.com/bloodstalk1/arkroute/internal/policyinspect"
 )
 
 func TestStableModelPolicyIDSanitizesModelID(t *testing.T) {
-	got := policyedit.StableModelPolicyID("DeepSeek/V4 Pro++")
+	got := compatpolicy.StableModelPolicyID("DeepSeek/V4 Pro++")
 	want := "model-deepseek-v4-pro-compat"
 	if got != want {
 		t.Fatalf("id = %q, want %q", got, want)
@@ -74,7 +75,7 @@ func TestDeleteModelOverrideRemovesGeneratedPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if policyID != policyedit.StableModelPolicyID(cfg.Models[0].ID) {
+	if policyID != compatpolicy.StableModelPolicyID(cfg.Models[0].ID) {
 		t.Fatalf("policy id = %q", policyID)
 	}
 	if len(deleted.CompatibilityPolicies) != 0 {
