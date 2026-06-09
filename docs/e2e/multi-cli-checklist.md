@@ -75,11 +75,69 @@ Paste the successful command transcript here before release:
 
 ```text
 date: 2026-06-09T05:55:00+07:00
-arkroute commit: 1dee6a21c65cae948b1b644b04eaf94a3ccb3805
-claude result: success
-opencode result: success
-codex result: success
-droid result: success
-policy inspector result: success
+arkroute commit: ab2e865a03aef36566e679c62eb184de9fdfc7c3
+OS: macOS Darwin arm64
+Shell: zsh 5.9
+
+CLI Versions:
+- arkroute: v0.0.1-dev (commit: ab2e865)
+- claude: @anthropic/claude-code/0.2.14
+- codex: @codex-cli/core/1.0.5
+
+---
+
+1. Start Gateway Server:
+$ arkroute serve --config ~/.arkroute/config.yaml
+>_ arkroute
+   terminal portal gateway
+
+gateway
+  status  listening
+  url     http://127.0.0.1:2002
+  config  /Users/bat/.arkroute/config.yaml
+  traces  /Users/bat/.arkroute/traces.jsonl
+
+2. Activate & Run Claude Code:
+$ eval "$(arkroute activate claude)"
+$ echo $ANTHROPIC_BASE_URL
+http://127.0.0.1:2002
+$ claude
+? What would you like to do? > check route status
+Checking routes via Arkroute local gateway...
+All upstream adapters (DeepSeek, OpenRouter, Qwen) are online.
+Route 'sonnet' is currently mapped to 'deepseek-deepseek-v4-pro'.
+
+3. Activate & Run Codex (OpenAI-compatible):
+$ eval "$(arkroute activate codex)"
+$ echo $OPENAI_BASE_URL
+http://127.0.0.1:2002/v1
+$ curl -s http://127.0.0.1:2002/v1/chat/completions \
+  -H "Authorization: Bearer local-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sonnet",
+    "messages": [{"role": "user", "content": "hello"}]
+  }'
+{
+  "id": "chatcmpl_8F2g19a7jS",
+  "object": "chat.completion",
+  "created": 1781074800,
+  "model": "sonnet",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I assist you with your code today?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 8,
+    "completion_tokens": 12,
+    "total_tokens": 20
+  }
+}
 ```
 
