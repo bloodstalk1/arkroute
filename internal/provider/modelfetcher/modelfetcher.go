@@ -119,7 +119,11 @@ func classifyStatus(status int) error {
 
 // fetchOpenAICompatible calls GET {base}/models and parses the {data: [...]} shape.
 func fetchOpenAICompatible(ctx context.Context, req Request) (*Fetched, error) {
-	endpoint, err := joinURL(req.BaseURL, "models")
+	baseURL := req.BaseURL
+	if isOpencodeGo(baseURL) {
+		baseURL = strings.TrimRight(baseURL, "/") + "/v1"
+	}
+	endpoint, err := joinURL(baseURL, "models")
 	if err != nil {
 		return nil, err
 	}
@@ -270,4 +274,14 @@ func joinURL(base, suffix string) (string, error) {
 	trimmed := strings.TrimRight(u.Path, "/")
 	u.Path = trimmed + "/" + strings.TrimLeft(suffix, "/")
 	return u.String(), nil
+}
+
+func isOpencodeGo(baseURL string) bool {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Host)
+	path := strings.ToLower(strings.TrimRight(u.Path, "/"))
+	return host == "opencode.ai" && (path == "/zen/go" || strings.HasSuffix(path, "/zen/go"))
 }

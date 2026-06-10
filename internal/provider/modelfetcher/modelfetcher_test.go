@@ -186,3 +186,37 @@ func TestJoinURL(t *testing.T) {
 		}
 	}
 }
+
+func TestIsOpencodeGo(t *testing.T) {
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://opencode.ai/zen/go", true},
+		{"https://opencode.ai/zen/go/", true},
+		{"http://opencode.ai/zen/go", true},
+		{"https://opencode.ai/zen/v1", false},
+		{"https://openai.com/zen/go", false},
+	}
+	for _, tc := range tests {
+		got := isOpencodeGo(tc.url)
+		if got != tc.want {
+			t.Errorf("isOpencodeGo(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+}
+
+func TestFetchOpenAICompatibleURLRewrite(t *testing.T) {
+	baseURL := "https://opencode.ai/zen/go"
+	if isOpencodeGo(baseURL) {
+		baseURL = strings.TrimRight(baseURL, "/") + "/v1"
+	}
+	got, err := joinURL(baseURL, "models")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "https://opencode.ai/zen/go/v1/models"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
