@@ -406,13 +406,15 @@ function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideCh
   useEffect(() => {
     if (!inspection) return;
     const override = inspection.user_override || {};
-    setOverrideDraft({
-      auto_enable: override.auto_enable === true ? "true" : override.auto_enable === false ? "false" : "unset",
-      auto_effort: override.auto_effort || "unset",
-      replay: override.replay === true ? "true" : override.replay === false ? "false" : "unset",
-      omit_tool_choice: override.omit_tool_choice === true ? "true" : override.omit_tool_choice === false ? "false" : "unset"
+    Promise.resolve().then(() => {
+      setOverrideDraft({
+        auto_enable: override.auto_enable === true ? "true" : override.auto_enable === false ? "false" : "unset",
+        auto_effort: override.auto_effort || "unset",
+        replay: override.replay === true ? "true" : override.replay === false ? "false" : "unset",
+        omit_tool_choice: override.omit_tool_choice === true ? "true" : override.omit_tool_choice === false ? "false" : "unset"
+      });
+      setOverrideStatus({ text: "", type: "" });
     });
-    setOverrideStatus({ text: "", type: "" });
   }, [inspection]);
 
   const handleSaveOverride = async () => {
@@ -958,7 +960,7 @@ function App() {
         setFetchingModels(false);
       }
     }
-  }, [apiHeaders, form.preset_id, form.base_url, form.api_key, form.api_key_mode, form.env_name, form.type]);
+  }, [apiHeaders, form]);
 
   useEffect(() => {
     if (!shouldAutoFetchModels(form)) {
@@ -969,15 +971,7 @@ function App() {
       fetchLiveModels({ automatic: true });
     }, 500);
     return () => clearTimeout(timer);
-  }, [
-    fetchLiveModels,
-    form.preset_id,
-    form.base_url,
-    form.api_key,
-    form.api_key_mode,
-    form.env_name,
-    form.type,
-  ]);
+  }, [fetchLiveModels, form]);
 
   useEffect(() => {
     let cancelled = false;
@@ -998,9 +992,17 @@ function App() {
     if (activeTab === "models") {
       loadRoutePresets(isCancelled);
       if (selectedRouteAlias) {
-        loadCLIContext({ route_alias: selectedRouteAlias }, isCancelled);
+        Promise.resolve().then(() => {
+          if (!isCancelled()) {
+            loadCLIContext({ route_alias: selectedRouteAlias }, isCancelled);
+          }
+        });
       } else if (selectedModelId) {
-        loadCLIContext({ model_id: selectedModelId }, isCancelled);
+        Promise.resolve().then(() => {
+          if (!isCancelled()) {
+            loadCLIContext({ model_id: selectedModelId }, isCancelled);
+          }
+        });
       }
     }
     return () => {
@@ -1017,34 +1019,46 @@ function App() {
   useEffect(() => {
     const models = config?.models || [];
     if (models.length === 0) {
-      setSelectedModelId("");
-      setPolicyInspect(null);
+      Promise.resolve().then(() => {
+        setSelectedModelId("");
+        setPolicyInspect(null);
+      });
       return;
     }
     if (!selectedModelId || !models.some((model) => model.id === selectedModelId)) {
-      setSelectedModelId(models[0].id);
+      Promise.resolve().then(() => {
+        setSelectedModelId(models[0].id);
+      });
     }
   }, [config, selectedModelId]);
 
   useEffect(() => {
     const providers = config?.providers || [];
     if (providers.length === 0) {
-      setSelectedProviderId("");
+      Promise.resolve().then(() => {
+        setSelectedProviderId("");
+      });
       return;
     }
     if (!selectedProviderId || !providers.some((provider) => provider.id === selectedProviderId)) {
-      setSelectedProviderId(providers[0].id);
+      Promise.resolve().then(() => {
+        setSelectedProviderId(providers[0].id);
+      });
     }
   }, [config, selectedProviderId]);
 
   useEffect(() => {
     const routes = config?.routes || [];
     if (routes.length === 0) {
-      setSelectedRouteAlias("");
+      Promise.resolve().then(() => {
+        setSelectedRouteAlias("");
+      });
       return;
     }
     if (!selectedRouteAlias || !routes.some((route) => route.alias === selectedRouteAlias)) {
-      setSelectedRouteAlias(routes[0].alias);
+      Promise.resolve().then(() => {
+        setSelectedRouteAlias(routes[0].alias);
+      });
     }
   }, [config, selectedRouteAlias]);
 
@@ -1077,7 +1091,11 @@ function App() {
       return;
     }
     let cancelled = false;
-    loadPolicyInspect(selectedModelId, () => cancelled);
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        loadPolicyInspect(selectedModelId, () => cancelled);
+      }
+    });
     return () => {
       cancelled = true;
     };
