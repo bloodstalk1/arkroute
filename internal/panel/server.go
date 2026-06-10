@@ -105,11 +105,20 @@ func handleLater(path string, onSave func() error) http.HandlerFunc {
 
 func handleProvider(path string, claudeWriter func(config.Config) error, onSave func() error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", http.MethodPost)
+		switch r.Method {
+		case http.MethodPost:
+			handleProviderSave(path, claudeWriter, onSave)(w, r)
+		case http.MethodDelete:
+			handleProviderDelete(path, onSave)(w, r)
+		default:
+			w.Header().Set("Allow", "POST, DELETE")
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
-			return
 		}
+	}
+}
+
+func handleProviderSave(path string, claudeWriter func(config.Config) error, onSave func() error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var input setupcore.ProviderSetup
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": "invalid setup payload"})
@@ -149,6 +158,36 @@ func handleProvider(path string, claudeWriter func(config.Config) error, onSave 
 			response["claude_error"] = claudeErr
 		}
 		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func handleProviderDelete(path string, onSave func() error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		if strings.TrimSpace(id) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": "provider id is required"})
+			return
+		}
+		cfg, err := loadOrBootstrapConfig(path)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"schema_version": 1, "error": err.Error()})
+			return
+		}
+		cfg, err = setupcore.RemoveProviderSetup(cfg, id)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
+			return
+		}
+		_, err = NewConfigStore(path).SaveAndReload(cfg, onSave)
+		if err != nil {
+			writeJSON(w, httpStatusForSaveError(err), map[string]any{"schema_version": 1, "error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"schema_version": 1,
+			"status":         "deleted",
+			"config":         config.Redacted(cfg),
+		})
 	}
 }
 

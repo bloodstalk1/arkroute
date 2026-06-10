@@ -11,6 +11,7 @@ import (
 
 	"github.com/bloodstalk1/arkroute/internal/clitools"
 	"github.com/bloodstalk1/arkroute/internal/config"
+	setupcore "github.com/bloodstalk1/arkroute/internal/setup"
 )
 
 func TestMain(m *testing.M) {
@@ -517,6 +518,116 @@ func TestRoutePresetApplyWritesBackupAndReloads(t *testing.T) {
 	}
 	if len(updated.Providers) != 1 || updated.Profiles["deepseek"] != "sonnet" {
 		t.Fatalf("updated config = %+v", updated)
+	}
+}
+
+func TestSetupProviderPreservesExistingProviders(t *testing.T) {
+	_ = setupcore.ProviderSetup{}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	// Create minimal config with an existing provider
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
+		ID:      "existing-provider",
+		Name:    "Existing Provider",
+		Type:    "openai_compatible",
+		BaseURL: "https://api.openai.com/v1",
+		APIKey:  "existing-key",
+		Enabled: true,
+	})
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{Sessions: store, ConfigPath: path})
+
+	// Add a new provider using the POST setup endpoint
+	body := strings.NewReader(`{"preset_id":"openrouter","api_key_mode":"config","api_key":"sk-secret","upstream_model":"anthropic/claude-sonnet-4.5","exposed_alias":"sonnet-or","route_alias":"sonnet"}`)
+	req := httptest.NewRequest(http.MethodPost, "/internal/setup/provider", body)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "sk-secret") || strings.Contains(rec.Body.String(), "existing-key") {
+		t.Fatalf("response leaked keys: %s", rec.Body.String())
+	}
+
+	updated, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify both the existing provider and the new provider are present
+	foundExisting := false
+	foundNew := false
+	for _, p := range updated.Providers {
+		if p.ID == "existing-provider" {
+			foundExisting = true
+		}
+		if p.ID == "openrouter" {
+			foundNew = true
+		}
+	}
+	if !foundExisting {
+		t.Error("existing-provider was not preserved")
+	}
+	if !foundNew {
+		t.Error("new openrouter provider was not added")
+	}
+}
+
+func TestSetupProviderDeleteRemovesProviderAndReloads(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Providers[0].APIKey = "sk-secret"
+	if err := savePanelConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	reloads := 0
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := Routes(Deps{
+		Sessions:   store,
+		ConfigPath: path,
+		OnSave: func() error {
+			reloads++
+			return nil
+		},
+	})
+
+	// Call DELETE /internal/setup/provider?id=openrouter
+	req := httptest.NewRequest(http.MethodDelete, "/internal/setup/provider?id=openrouter", nil)
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "sk-secret") {
+		t.Fatalf("response leaked provider key: %s", rec.Body.String())
+	}
+	if reloads != 1 {
+		t.Fatalf("reloads = %d, want 1", reloads)
+	}
+
+	updated, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range updated.Providers {
+		if p.ID == "openrouter" {
+			t.Fatal("openrouter provider was not removed")
+		}
 	}
 }
 
