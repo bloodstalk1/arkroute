@@ -7,13 +7,11 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
-func TestApplyProviderSetupStoresEnvReference(t *testing.T) {
+func TestApplyProviderSetupStoresConfigKey(t *testing.T) {
 	cfg := config.BootstrapLocalConfig("local-key")
 	out, err := ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:       "openrouter",
-		APIKeyMode:     APIKeyModeEnv,
 		APIKey:         "sk-or-secret",
-		EnvName:        "OPENROUTER_API_KEY",
 		UpstreamModel:  "anthropic/claude-sonnet-4.5",
 		ExposedAlias:   "sonnet-or",
 		RouteAlias:     "sonnet",
@@ -22,7 +20,7 @@ func TestApplyProviderSetupStoresEnvReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyProviderSetup() error = %v", err)
 	}
-	if out.Providers[0].APIKey != "env:OPENROUTER_API_KEY" {
+	if out.Providers[0].APIKey != "sk-or-secret" {
 		t.Fatalf("provider api key = %q", out.Providers[0].APIKey)
 	}
 	if out.Models[0].ProviderID != "openrouter" || out.Routes[0].Alias != "sonnet" {
@@ -43,7 +41,6 @@ func TestApplyProviderSetupCanStoreRawConfigSecret(t *testing.T) {
 	cfg := config.BootstrapLocalConfig("local-key")
 	out, err := ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "anthropic",
-		APIKeyMode:    APIKeyModeConfig,
 		APIKey:        "sk-ant-secret",
 		UpstreamModel: "claude-sonnet-4-20250514",
 		ExposedAlias:  "sonnet-anthropic",
@@ -71,8 +68,7 @@ func TestApplyProviderSetupBuildsOpenCodeZenConfig(t *testing.T) {
 	cfg := config.BootstrapLocalConfig("local-key")
 	out, err := ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "opencode-zen",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "OPENCODE_API_KEY",
+		APIKey:        "sk-opencode-secret",
 		UpstreamModel: "kimi-k2.6",
 		ExposedAlias:  "opencode-zen-kimi",
 		RouteAlias:    "sonnet",
@@ -89,7 +85,7 @@ func TestApplyProviderSetupBuildsOpenCodeZenConfig(t *testing.T) {
 	if out.Providers[0].BaseURL != "https://opencode.ai/zen/v1" {
 		t.Fatalf("provider base URL = %q", out.Providers[0].BaseURL)
 	}
-	if out.Providers[0].APIKey != "env:OPENCODE_API_KEY" {
+	if out.Providers[0].APIKey != "sk-opencode-secret" {
 		t.Fatalf("provider API key = %q", out.Providers[0].APIKey)
 	}
 	if out.Models[0].UpstreamModel != "kimi-k2.6" || out.Models[0].ExposedAlias != "opencode-zen-kimi" {
@@ -103,12 +99,45 @@ func TestApplyProviderSetupBuildsOpenCodeZenConfig(t *testing.T) {
 	}
 }
 
+func TestApplyProviderSetupPreservesExistingApiKeyIfInputBlank(t *testing.T) {
+	cfg := config.BootstrapLocalConfig("local-key")
+	// Setup with initial key
+	cfg, err := ApplyProviderSetup(cfg, ProviderSetup{
+		PresetID:      "anthropic",
+		APIKey:        "sk-ant-secret",
+		UpstreamModel: "claude-sonnet-4-5",
+		ExposedAlias:  "sonnet-anthropic",
+		RouteAlias:    "sonnet",
+	})
+	if err != nil {
+		t.Fatalf("first ApplyProviderSetup() error = %v", err)
+	}
+	if cfg.Providers[0].APIKey != "sk-ant-secret" {
+		t.Fatalf("API Key = %q, want sk-ant-secret", cfg.Providers[0].APIKey)
+	}
+
+	// Update provider fields but leave APIKey blank
+	cfg, err = ApplyProviderSetup(cfg, ProviderSetup{
+		PresetID:      "anthropic",
+		APIKey:        "",
+		UpstreamModel: "claude-sonnet-4-5",
+		ExposedAlias:  "sonnet-anthropic",
+		RouteAlias:    "sonnet",
+	})
+	if err != nil {
+		t.Fatalf("second ApplyProviderSetup() error = %v", err)
+	}
+	// The API key should be preserved!
+	if cfg.Providers[0].APIKey != "sk-ant-secret" {
+		t.Fatalf("API Key = %q, want preserved sk-ant-secret", cfg.Providers[0].APIKey)
+	}
+}
+
 func TestApplyProviderSetupPreservesExistingProvidersAndAddsRouteTarget(t *testing.T) {
 	cfg := config.BootstrapLocalConfig("local-key")
 	cfg, err := ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "anthropic",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "ANTHROPIC_API_KEY",
+		APIKey:        "sk-ant-key",
 		UpstreamModel: "claude-sonnet-4-5",
 		ExposedAlias:  "sonnet-anthropic",
 		RouteAlias:    "sonnet",
@@ -119,8 +148,7 @@ func TestApplyProviderSetupPreservesExistingProvidersAndAddsRouteTarget(t *testi
 
 	cfg, err = ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "openrouter",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "OPENROUTER_API_KEY",
+		APIKey:        "sk-or-key",
 		UpstreamModel: "anthropic/claude-sonnet-4.5",
 		ExposedAlias:  "sonnet-or",
 		RouteAlias:    "sonnet",
@@ -154,8 +182,7 @@ func TestApplyProviderSetupUpdatesExistingProviderWithoutDuplicateTarget(t *test
 	cfg := config.BootstrapLocalConfig("local-key")
 	cfg, err := ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "openrouter",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "OPENROUTER_API_KEY",
+		APIKey:        "sk-or-key",
 		UpstreamModel: "anthropic/claude-sonnet-4.5",
 		ExposedAlias:  "sonnet-or",
 		RouteAlias:    "sonnet",
@@ -166,8 +193,7 @@ func TestApplyProviderSetupUpdatesExistingProviderWithoutDuplicateTarget(t *test
 
 	cfg, err = ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "openrouter",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "OPENROUTER_ALT_KEY",
+		APIKey:        "sk-or-alt-key",
 		UpstreamModel: "openai/gpt-4o",
 		ExposedAlias:  "openrouter-gpt4o",
 		RouteAlias:    "sonnet",
@@ -179,8 +205,8 @@ func TestApplyProviderSetupUpdatesExistingProviderWithoutDuplicateTarget(t *test
 	if got, want := len(cfg.Providers), 1; got != want {
 		t.Fatalf("providers = %d, want %d: %+v", got, want, cfg.Providers)
 	}
-	if cfg.Providers[0].APIKey != "env:OPENROUTER_ALT_KEY" {
-		t.Fatalf("provider key = %q, want updated env reference", cfg.Providers[0].APIKey)
+	if cfg.Providers[0].APIKey != "sk-or-alt-key" {
+		t.Fatalf("provider key = %q, want updated config key", cfg.Providers[0].APIKey)
 	}
 	if got, want := len(cfg.Models), 1; got != want {
 		t.Fatalf("models = %d, want %d: %+v", got, want, cfg.Models)
@@ -204,8 +230,7 @@ func TestRemoveProviderSetupRemovesOwnedModelsAndRouteTargets(t *testing.T) {
 	var err error
 	cfg, err = ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "anthropic",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "ANTHROPIC_API_KEY",
+		APIKey:        "sk-ant-key",
 		UpstreamModel: "claude-sonnet-4-5",
 		ExposedAlias:  "sonnet-anthropic",
 		RouteAlias:    "sonnet",
@@ -215,8 +240,7 @@ func TestRemoveProviderSetupRemovesOwnedModelsAndRouteTargets(t *testing.T) {
 	}
 	cfg, err = ApplyProviderSetup(cfg, ProviderSetup{
 		PresetID:      "openrouter",
-		APIKeyMode:    APIKeyModeEnv,
-		EnvName:       "OPENROUTER_API_KEY",
+		APIKey:        "sk-or-key",
 		UpstreamModel: "anthropic/claude-sonnet-4.5",
 		ExposedAlias:  "sonnet-or",
 		RouteAlias:    "sonnet",

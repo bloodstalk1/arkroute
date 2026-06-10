@@ -498,7 +498,7 @@ func TestRoutePresetApplyWritesBackupAndReloads(t *testing.T) {
 		Sessions: store, ConfigPath: path,
 		OnSave: func() error { reloads++; return nil },
 	})
-	body := strings.NewReader(`{"preset_id":"deepseek-v4-pro","provider_id":"deepseek","api_key_mode":"env","env_name":"DEEPSEEK_API_KEY","route_alias":"sonnet","profile_name":"deepseek"}`)
+	body := strings.NewReader(`{"preset_id":"deepseek-v4-pro","provider_id":"deepseek","api_key":"sk-deepseek","route_alias":"sonnet","profile_name":"deepseek"}`)
 	req := httptest.NewRequest(http.MethodPost, "/internal/route-presets/apply", body)
 	req.Header.Set("X-Arkroute-Setup-Token", token)
 	rec := httptest.NewRecorder()

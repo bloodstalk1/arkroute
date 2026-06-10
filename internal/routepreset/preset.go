@@ -7,7 +7,6 @@ import (
 
 	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
-	setupcore "github.com/bloodstalk1/arkroute/internal/setup"
 )
 
 var ErrConflict = errors.New("preset target already exists")
@@ -31,9 +30,7 @@ type ApplyRequest struct {
 	PresetID         string `json:"preset_id"`
 	ProviderID       string `json:"provider_id"`
 	ProviderName     string `json:"provider_name"`
-	APIKeyMode       string `json:"api_key_mode"`
 	APIKey           string `json:"api_key"`
-	EnvName          string `json:"env_name"`
 	RouteAlias       string `json:"route_alias"`
 	ProfileName      string `json:"profile_name"`
 	AppendToRoute    bool   `json:"append_to_route"`
@@ -73,9 +70,30 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 	if err := checkConflicts(cfg, inputs.providerID, inputs.modelID, req.ConfirmOverwrite); err != nil {
 		return config.Config{}, ApplySummary{}, err
 	}
+
+	// Capture existing API key before potentially removing/overwriting the provider
+	existingAPIKey := ""
+	for _, p := range cfg.Providers {
+		if p.ID == inputs.providerID {
+			existingAPIKey = p.APIKey
+			break
+		}
+	}
+
 	cfg = removeExisting(cfg, inputs.providerID, inputs.modelID, req.ConfirmOverwrite)
 	discovery := nextDiscoveryAlias(defaultDiscoveryAlias, cfg.Models)
-	cfg = appendProvider(cfg, req, preset, inputs)
+
+	// When appending provider, pass captured existing API key or request API key
+	apiKey := req.APIKey
+	if apiKey == "" {
+		apiKey = existingAPIKey
+	}
+
+	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
+		ID: inputs.providerID, Name: inputs.providerName, Type: preset.ProviderType, BaseURL: preset.BaseURL,
+		APIKey: apiKey, Enabled: true,
+	})
+
 	cfg = appendReasoningPolicy(cfg, preset, inputs)
 	cfg = appendModelEntry(cfg, preset, inputs, discovery)
 	cfg = upsertRouteAndProfile(cfg, req, inputs)
@@ -108,14 +126,6 @@ func resolveInputs(req ApplyRequest, preset Preset) applyInputs {
 		modelAlias:   modelAlias,
 		modelID:      modelID,
 	}
-}
-
-func appendProvider(cfg config.Config, req ApplyRequest, preset Preset, in applyInputs) config.Config {
-	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
-		ID: in.providerID, Name: in.providerName, Type: preset.ProviderType, BaseURL: preset.BaseURL,
-		APIKey: providerAPIKey(req, preset, in.providerID), Enabled: true,
-	})
-	return cfg
 }
 
 func nextDiscoveryAlias(candidate string, existing []config.ModelConfig) string {
@@ -253,12 +263,7 @@ func upsertRoute(routes []config.RouteConfig, alias string, modelID string, appe
 	})
 }
 
-func providerAPIKey(req ApplyRequest, preset Preset, providerID string) string {
-	if req.APIKeyMode == setupcore.APIKeyModeConfig {
-		return req.APIKey
-	}
-	return "env:" + firstNonEmpty(req.EnvName, preset.DefaultEnvName, setupcore.EnvNameForProvider(providerID))
-}
+
 
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {

@@ -38,7 +38,7 @@ func Routes(deps Deps) http.Handler {
 	mux.HandleFunc("/internal/setup/provider", withSetupToken(deps.Sessions, handleProvider(deps.ConfigPath, deps.ClaudeSettingsWriter, deps.OnSave)))
 	mux.HandleFunc("/internal/setup/later", withSetupToken(deps.Sessions, handleLater(deps.ConfigPath, deps.OnSave)))
 	mux.HandleFunc("/internal/setup/status", withSetupToken(deps.Sessions, handleGetStatus(deps.ConfigPath)))
-	mux.HandleFunc("/internal/setup/fetch-models", withSetupToken(deps.Sessions, handleFetchModels))
+	mux.HandleFunc("/internal/setup/fetch-models", withSetupToken(deps.Sessions, handleFetchModels(deps.ConfigPath)))
 	mux.HandleFunc("/internal/setup/catalog", withSetupToken(deps.Sessions, handleCatalogList))
 	mux.HandleFunc("/internal/config/export", withSetupToken(deps.Sessions, handleConfigExport(deps.ConfigPath)))
 	mux.HandleFunc("/internal/config/import/validate", withSetupToken(deps.Sessions, handleConfigImportValidate(deps.ConfigPath)))

@@ -1,5 +1,3 @@
-import { envNameForProvider } from "./modelFetch.js";
-
 export function initialProviderForm() {
   return {
     mode: "add",
@@ -7,9 +5,7 @@ export function initialProviderForm() {
     provider_name: "",
     base_url: "",
     type: "",
-    api_key_mode: "env",
     api_key: "",
-    env_name: "",
     upstream_model: "",
     exposed_alias: "",
     route_alias: "",
@@ -31,7 +27,6 @@ export function formFromPreset(preset, previous = initialProviderForm()) {
     upstream_model: preset.default_model || "",
     exposed_alias: preset.default_alias || "",
     route_alias: preset.default_route || "",
-    env_name: preset.id ? envNameForProvider(preset.id) : "",
   };
 }
 
@@ -41,8 +36,6 @@ export function formFromProvider(provider, models = [], routes = [], presets = [
   const route = routes.find((item) =>
     (item.targets || []).some((target) => target.model_id === providerModel?.id),
   );
-  const apiKey = provider?.api_key || "";
-  const envMode = apiKey.startsWith("env:");
   return {
     ...initialProviderForm(),
     mode: "edit",
@@ -50,9 +43,7 @@ export function formFromProvider(provider, models = [], routes = [], presets = [
     provider_name: provider?.name || preset?.name || provider?.id || "",
     base_url: provider?.base_url || preset?.base_url || "",
     type: provider?.type || preset?.type || "",
-    api_key_mode: envMode ? "env" : "config",
     api_key: "",
-    env_name: envMode ? apiKey.slice(4) : envNameForProvider(provider?.id || preset?.id || ""),
     upstream_model: providerModel?.upstream_model || preset?.default_model || "",
     exposed_alias: providerModel?.exposed_alias || preset?.default_alias || "",
     route_alias: route?.alias || preset?.default_route || "sonnet",
@@ -64,11 +55,8 @@ export function validateProviderForm(form) {
   const errors = {};
   if (!form.preset_id?.trim()) errors.preset_id = "Choose a provider preset.";
   if (!form.base_url?.trim()) errors.base_url = "Enter a provider base URL.";
-  if (form.api_key_mode === "env" && !form.env_name?.trim()) {
-    errors.env_name = "Enter the environment variable name.";
-  }
-  if (form.api_key_mode === "config" && form.mode === "add" && !form.api_key?.trim()) {
-    errors.api_key = "Enter an API key or use an environment variable.";
+  if (form.mode === "add" && !form.api_key?.trim()) {
+    errors.api_key = "Enter an API key.";
   }
   if (!form.upstream_model?.trim()) errors.upstream_model = "Choose or enter an upstream model.";
   if (!form.exposed_alias?.trim()) errors.exposed_alias = "Enter the model name shown to clients.";
@@ -82,9 +70,7 @@ export function buildProviderSetupPayload(form) {
     provider_name: form.provider_name,
     base_url: form.base_url,
     type: form.type,
-    api_key_mode: form.api_key_mode,
-    api_key: form.api_key_mode === "config" ? form.api_key : "",
-    env_name: form.api_key_mode === "env" ? form.env_name : "",
+    api_key: form.api_key,
     upstream_model: form.upstream_model,
     exposed_alias: form.exposed_alias,
     route_alias: form.route_alias,

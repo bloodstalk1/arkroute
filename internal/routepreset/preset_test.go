@@ -35,8 +35,7 @@ func TestApplyPresetAddsProviderModelRouteAndProfile(t *testing.T) {
 	out, summary, err := Apply(cfg, ApplyRequest{
 		PresetID:    "deepseek-v4-pro",
 		ProviderID:  "deepseek",
-		APIKeyMode:  "env",
-		EnvName:     "DEEPSEEK_API_KEY",
+		APIKey:      "sk-deepseek-key",
 		RouteAlias:  "custom-sonnet",
 		ProfileName: "custom-profile",
 	})
@@ -46,7 +45,7 @@ func TestApplyPresetAddsProviderModelRouteAndProfile(t *testing.T) {
 	if summary.ProviderID != "deepseek" || summary.ModelID == "" || summary.RouteAlias != "custom-sonnet" || summary.ProfileName != "custom-profile" {
 		t.Fatalf("summary = %+v", summary)
 	}
-	if len(out.Providers) != 1 || out.Providers[0].APIKey != "env:DEEPSEEK_API_KEY" {
+	if len(out.Providers) != 1 || out.Providers[0].APIKey != "sk-deepseek-key" {
 		t.Fatalf("providers = %+v", out.Providers)
 	}
 	if len(out.Models) != 1 || out.Models[0].ProviderID != "deepseek" {
@@ -96,8 +95,7 @@ func TestApplyPresetCanAppendFallbackTarget(t *testing.T) {
 	out, _, err := Apply(cfg, ApplyRequest{
 		PresetID:      "qwen-coder",
 		ProviderID:    "qwen",
-		APIKeyMode:    "env",
-		EnvName:       "QWEN_API_KEY",
+		APIKey:        "sk-qwen-key",
 		RouteAlias:    "sonnet",
 		AppendToRoute: true,
 	})

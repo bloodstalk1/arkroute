@@ -38,9 +38,7 @@ test("initialProviderForm creates add-mode defaults", () => {
     provider_name: "",
     base_url: "",
     type: "",
-    api_key_mode: "env",
     api_key: "",
-    env_name: "",
     upstream_model: "",
     exposed_alias: "",
     route_alias: "",
@@ -55,9 +53,7 @@ test("formFromPreset fills the happy path fields", () => {
     provider_name: "OpenRouter",
     base_url: "https://openrouter.ai/api/v1",
     type: "openai_compatible",
-    api_key_mode: "env",
     api_key: "",
-    env_name: "OPENROUTER_API_KEY",
     upstream_model: "anthropic/claude-sonnet-4.5",
     exposed_alias: "sonnet-or",
     route_alias: "sonnet",
@@ -86,9 +82,7 @@ test("formFromProvider reconstructs edit mode without leaking config secrets", (
   const form = formFromProvider(provider, models, routes, presets);
   assert.equal(form.mode, "edit");
   assert.equal(form.preset_id, "openrouter");
-  assert.equal(form.api_key_mode, "config");
   assert.equal(form.api_key, "");
-  assert.equal(form.env_name, "OPENROUTER_API_KEY");
   assert.equal(form.upstream_model, "anthropic/claude-sonnet-4.5");
   assert.equal(form.exposed_alias, "sonnet-or");
   assert.equal(form.route_alias, "sonnet");
@@ -98,7 +92,7 @@ test("validateProviderForm reports actionable field errors", () => {
   assert.deepEqual(validateProviderForm(initialProviderForm()), {
     preset_id: "Choose a provider preset.",
     base_url: "Enter a provider base URL.",
-    env_name: "Enter the environment variable name.",
+    api_key: "Enter an API key.",
     upstream_model: "Choose or enter an upstream model.",
     exposed_alias: "Enter the model name shown to clients.",
     route_alias: "Choose a route alias.",
@@ -109,7 +103,6 @@ test("buildProviderSetupPayload keeps edit payload compatible with setup endpoin
   const form = {
     ...formFromPreset(presets[0]),
     mode: "edit",
-    api_key_mode: "config",
     api_key: "sk-updated",
   };
   assert.deepEqual(buildProviderSetupPayload(form), {
@@ -117,9 +110,7 @@ test("buildProviderSetupPayload keeps edit payload compatible with setup endpoin
     provider_name: "OpenRouter",
     base_url: "https://openrouter.ai/api/v1",
     type: "openai_compatible",
-    api_key_mode: "config",
     api_key: "sk-updated",
-    env_name: "",
     upstream_model: "anthropic/claude-sonnet-4.5",
     exposed_alias: "sonnet-or",
     route_alias: "sonnet",

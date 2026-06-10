@@ -7,11 +7,6 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
-const (
-	APIKeyModeEnv    = "env"
-	APIKeyModeConfig = "config"
-)
-
 type ProviderPreset struct {
 	ID             string              `json:"id"`
 	Name           string              `json:"name"`

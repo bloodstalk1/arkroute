@@ -13,7 +13,7 @@ import (
 func TestFetchModelsHandlerRequiresPOST(t *testing.T) {
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	handler := withSetupToken(store, handleFetchModels)
+	handler := withSetupToken(store, handleFetchModels(""))
 	req := httptest.NewRequest(http.MethodGet, "/internal/setup/fetch-models", nil)
 	req.Header.Set("X-Arkroute-Setup-Token", token)
 	rr := httptest.NewRecorder()
@@ -33,7 +33,7 @@ func TestFetchModelsHandlerAuthErrorPropagates(t *testing.T) {
 
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	handler := withSetupToken(store, handleFetchModels)
+	handler := withSetupToken(store, handleFetchModels(""))
 	body := strings.NewReader(`{"preset_id":"openai","base_url":"` + upstream.URL + `/v1","api_key":"bad"}`)
 	req := httptest.NewRequest(http.MethodPost, "/internal/setup/fetch-models", body)
 	req.Header.Set("Content-Type", "application/json")
@@ -62,7 +62,7 @@ func TestFetchModelsHandlerSuccess(t *testing.T) {
 
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	handler := withSetupToken(store, handleFetchModels)
+	handler := withSetupToken(store, handleFetchModels(""))
 	body := strings.NewReader(`{"preset_id":"openai","base_url":"` + upstream.URL + `/v1","api_key":"sk-test"}`)
 	req := httptest.NewRequest(http.MethodPost, "/internal/setup/fetch-models", body)
 	req.Header.Set("Content-Type", "application/json")
@@ -94,7 +94,7 @@ func TestFetchModelsHandlerSuccess(t *testing.T) {
 func TestFetchModelsHandlerMissingBaseURL(t *testing.T) {
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	handler := withSetupToken(store, handleFetchModels)
+	handler := withSetupToken(store, handleFetchModels(""))
 	body := strings.NewReader(`{"preset_id":"openai"}`)
 	req := httptest.NewRequest(http.MethodPost, "/internal/setup/fetch-models", body)
 	req.Header.Set("Content-Type", "application/json")
@@ -122,7 +122,7 @@ func TestFetchModelsHandlerResolvesEnv(t *testing.T) {
 
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	handler := withSetupToken(store, handleFetchModels)
+	handler := withSetupToken(store, handleFetchModels(""))
 	body := strings.NewReader(`{"preset_id":"openai","base_url":"` + upstream.URL + `/v1","api_key":"env:TEST_CATALOG_HANDLER_ENV_KEY"}`)
 	req := httptest.NewRequest(http.MethodPost, "/internal/setup/fetch-models", body)
 	req.Header.Set("Content-Type", "application/json")

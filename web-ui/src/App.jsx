@@ -169,7 +169,6 @@ function ProviderSetupDrawer({
   showAdvanced,
   providerNameOptions,
   baseUrlOptions,
-  envNameOptions,
   upstreamModelOptions,
   exposedAliasOptions,
   fetchingModels,
@@ -201,7 +200,7 @@ function ProviderSetupDrawer({
 
       <div className="drawer-steps" aria-label="Setup steps">
         <span className="done">Provider</span>
-        <span className={form.api_key_mode ? "done" : ""}>Key</span>
+        <span className={(form.api_key || isEdit) ? "done" : ""}>Key</span>
         <span className={form.upstream_model && form.route_alias ? "done" : ""}>Model</span>
         <span className={form.activate_claude ? "done" : ""}>CLI</span>
       </div>
@@ -236,30 +235,16 @@ function ProviderSetupDrawer({
           <div className="section-heading">
             <span>02</span>
             <div>
-              <h3>Key source</h3>
-              <p>Use an environment variable for safer local setup, or store a key in config.</p>
+              <h3>API key</h3>
+              <p>Enter the provider API key to store directly in your config.</p>
             </div>
           </div>
-          <div className="segmented-control">
-            <button type="button" className={form.api_key_mode === "env" ? "active" : ""} onClick={() => onInputChange("api_key_mode", "env")}>Environment</button>
-            <button type="button" className={form.api_key_mode === "config" ? "active" : ""} onClick={() => onInputChange("api_key_mode", "config")}>Config</button>
+          <div className={`field ${errors.api_key ? "field-error" : ""}`}>
+            <label htmlFor="api-key">API key</label>
+            <input id="api-key" type="password" aria-describedby="api-key-help" value={form.api_key} onChange={(event) => onInputChange("api_key", event.target.value)} />
+            <small id="api-key-help">{isEdit ? "Leave blank to keep the existing config key." : "Enter the provider API key."}</small>
+            {errors.api_key && <small>{errors.api_key}</small>}
           </div>
-          {form.api_key_mode === "env" ? (
-            <div className={`field ${errors.env_name ? "field-error" : ""}`}>
-              <label htmlFor="env-name">Environment variable</label>
-              <input id="env-name" type="text" list="env-name-options" value={form.env_name} onChange={(event) => onInputChange("env_name", event.target.value)} />
-              <datalist id="env-name-options">{envNameOptions.map((option) => <option key={option} value={option} />)}</datalist>
-              <div className="terminal-note"><i className="ph-light ph-terminal-window"></i><span>export {form.env_name || "API_KEY"}=...</span></div>
-              {errors.env_name && <small>{errors.env_name}</small>}
-            </div>
-          ) : (
-            <div className={`field ${errors.api_key ? "field-error" : ""}`}>
-              <label htmlFor="api-key">API key</label>
-              <input id="api-key" type="password" aria-describedby="api-key-help" value={form.api_key} onChange={(event) => onInputChange("api_key", event.target.value)} />
-              <small id="api-key-help">{isEdit ? "Leave blank to keep the existing config key." : "Enter the provider API key."}</small>
-              {errors.api_key && <small>{errors.api_key}</small>}
-            </div>
-          )}
         </section>
 
         <section className="drawer-section">
@@ -1139,11 +1124,7 @@ function App() {
     return Array.from(list);
   }, [form.preset_id, presets]);
 
-  const envNameOptions = useMemo(() => {
-    const list = new Set([form.env_name, "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "OPENCODE_API_KEY"]);
-    list.delete("");
-    return Array.from(list);
-  }, [form.env_name]);
+
 
   const upstreamModelOptions = useMemo(() => {
     const list = [];
@@ -1382,8 +1363,7 @@ function App() {
       body: JSON.stringify({
         preset_id: preset.id,
         provider_id: preset.default_provider_id || preset.id,
-        env_name: preset.default_env_name || "",
-        api_key_mode: "env",
+        api_key: "",
         route_alias: preset.default_route,
         profile_name: preset.default_provider_id || preset.id,
         append_to_route: true
@@ -1525,7 +1505,6 @@ function App() {
           <ProviderSetupDrawer
             open={drawerOpen}
             baseUrlOptions={baseUrlOptions}
-            envNameOptions={envNameOptions}
             exposedAliasOptions={exposedAliasOptions}
             form={form}
             errors={formErrors}

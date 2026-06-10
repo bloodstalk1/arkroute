@@ -13,9 +13,7 @@ type ProviderSetup struct {
 	ProviderName   string `json:"provider_name"`
 	BaseURL        string `json:"base_url"`
 	Type           string `json:"type"`
-	APIKeyMode     string `json:"api_key_mode"`
 	APIKey         string `json:"api_key"`
-	EnvName        string `json:"env_name"`
 	UpstreamModel  string `json:"upstream_model"`
 	ExposedAlias   string `json:"exposed_alias"`
 	RouteAlias     string `json:"route_alias"`
@@ -34,8 +32,15 @@ func ApplyProviderSetup(cfg config.Config, input ProviderSetup) (config.Config, 
 	upstreamModel := firstNonEmpty(input.UpstreamModel, preset.DefaultModel)
 	exposedAlias := firstNonEmpty(input.ExposedAlias, preset.DefaultAlias)
 	routeAlias := firstNonEmpty(input.RouteAlias, preset.DefaultRoute)
-	envName := firstNonEmpty(input.EnvName, EnvNameForProvider(providerID))
-	apiKey := providerAPIKey(input.APIKeyMode, input.APIKey, envName)
+	apiKey := input.APIKey
+	if apiKey == "" {
+		for _, p := range cfg.Providers {
+			if p.ID == providerID {
+				apiKey = p.APIKey
+				break
+			}
+		}
+	}
 
 	modelID := providerID + "-" + normalizeID(exposedAlias)
 	if providerID == "opencode-zen" {
@@ -248,12 +253,6 @@ func findPreset(id string) (ProviderPreset, bool) {
 	return ProviderPreset{}, false
 }
 
-func providerAPIKey(mode string, raw string, envName string) string {
-	if mode == APIKeyModeConfig {
-		return raw
-	}
-	return "env:" + envName
-}
 
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
