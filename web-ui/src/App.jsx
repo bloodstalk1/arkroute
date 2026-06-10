@@ -132,9 +132,9 @@ function EmptyState({ icon, title, children }) {
   );
 }
 
-function ProviderCard({ provider }) {
+function ProviderCard({ provider, onEdit, onInspect }) {
   return (
-    <article className="operator-card span-2">
+    <article className="operator-card provider-dashboard-card">
       <div className="card-heading">
         <div>
           <StatusBadge>Enabled</StatusBadge>
@@ -146,6 +146,14 @@ function ProviderCard({ provider }) {
         <DataRow label="Protocol">{provider.type || "auto"}</DataRow>
         <DataRow label="Base URL">{provider.base_url}</DataRow>
         <DataRow label="Key">{providerKeySummary(provider)}</DataRow>
+      </div>
+      <div className="provider-row-actions">
+        <button type="button" className="secondary-button" onClick={onEdit}>
+          <i className="ph-light ph-pencil-simple-line"></i>Edit
+        </button>
+        <button type="button" className="secondary-button" onClick={onInspect}>
+          <i className="ph-light ph-crosshair"></i>Inspect
+        </button>
       </div>
     </article>
   );
@@ -267,7 +275,7 @@ function ProviderSetupDrawer({
             <div className={`field ${errors.upstream_model ? "field-error" : ""}`}>
               <div className="field-label-row">
                 <label htmlFor="upstream-model">Upstream model</label>
-                <button type="button" className="btn-tertiary compact-action" onClick={onFetchModels} disabled={fetchingModels || !form.preset_id || !form.base_url}>
+                <button type="button" className="secondary-button compact-action" onClick={onFetchModels} disabled={fetchingModels || !form.preset_id || !form.base_url}>
                   <i className="ph-bold ph-arrows-clockwise"></i>{fetchingModels ? "Fetching" : "Fetch live"}
                 </button>
               </div>
@@ -338,8 +346,8 @@ function ProviderSetupDrawer({
           )
         )}
         <div className="drawer-action-spacer"></div>
-        <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
-        <button id="save-setup" type="button" onClick={onSaveSetup} disabled={loading}>
+        <button type="button" className="secondary-button" onClick={onClose} disabled={loading}>Cancel</button>
+        <button id="save-setup" className="primary-button" type="button" onClick={onSaveSetup} disabled={loading}>
           <i className="ph-bold ph-floppy-disk"></i>{isEdit ? "Save changes" : "Save provider"}
         </button>
       </div>
@@ -594,6 +602,7 @@ function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideCh
         <div className="actions policy-override-actions">
           <button
             id="save-policy-override"
+            className="primary-button"
             type="button"
             onClick={handleSaveOverride}
             disabled={overrideSaving}
@@ -605,8 +614,8 @@ function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideCh
           {inspection.user_override?.exists && (
             <button
               id="reset-policy-override"
+              className="secondary-button"
               type="button"
-              className="btn-secondary"
               onClick={handleResetToBuiltin}
               disabled={overrideSaving}
             >
@@ -700,7 +709,7 @@ function CLIContextPanel({ context, status, onCopy }) {
               <code>{profile.protocol}</code>
             </div>
             <pre>{profile.command}</pre>
-            <button type="button" className="btn-secondary" onClick={() => onCopy(profile.command)}>
+            <button type="button" className="secondary-button" onClick={() => onCopy(profile.command)}>
               <i className="ph-bold ph-copy"></i>Copy
             </button>
           </article>
@@ -1483,17 +1492,12 @@ function App() {
               <section className="provider-dashboard">
                 <div className="operator-grid configured-provider-grid">
                   {config.providers.map((provider) => (
-                    <article className="provider-row-card" key={provider.id}>
-                      <ProviderCard provider={provider} />
-                      <div className="provider-row-actions">
-                        <button type="button" className="secondary-button" onClick={() => openEditProvider(provider)}>
-                          <i className="ph-light ph-pencil-simple-line"></i>Edit
-                        </button>
-                        <button type="button" className="secondary-button" onClick={() => setSelectedProviderId(provider.id)}>
-                          <i className="ph-light ph-crosshair"></i>Inspect
-                        </button>
-                      </div>
-                    </article>
+                    <ProviderCard
+                      key={provider.id}
+                      provider={provider}
+                      onEdit={() => openEditProvider(provider)}
+                      onInspect={() => setSelectedProviderId(provider.id)}
+                    />
                   ))}
                 </div>
               </section>
@@ -1675,7 +1679,7 @@ function App() {
                           <i className="ph-bold ph-play"></i>
                           {launchingTool === tool.id ? "Launching" : "Launch"}
                         </button>
-                        <button type="button" className="btn-secondary" onClick={() => handleCopyActivation(tool)}>
+                        <button type="button" className="secondary-button" onClick={() => handleCopyActivation(tool)}>
                           <i className="ph-bold ph-copy"></i>
                           Copy Env
                         </button>
