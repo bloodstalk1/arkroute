@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	providercatalog "github.com/bloodstalk1/arkroute/internal/provider"
+	"github.com/bloodstalk1/arkroute/internal/security"
 )
 
 type ValidationError struct {
@@ -31,7 +32,7 @@ func (cfg Config) Validate() error {
 	if cfg.Version != CurrentVersion {
 		fields["version"] = "must be 1"
 	}
-	if cfg.Server.Host != "127.0.0.1" && cfg.Server.Host != "localhost" && cfg.Server.Host != "::1" {
+	if !security.IsLoopbackHost(cfg.Server.Host) {
 		fields["server.host"] = "must be loopback"
 	}
 	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
@@ -56,8 +57,10 @@ func (cfg Config) Validate() error {
 		if !providercatalog.IsAutoProtocol(provider.Type) && !providercatalog.IsKnownProtocol(provider.Type) {
 			fields[path+".type"] = "unsupported provider type"
 		}
-		if _, err := url.ParseRequestURI(provider.BaseURL); err != nil {
+		if parsed, err := url.ParseRequestURI(provider.BaseURL); err != nil {
 			fields[path+".base_url"] = "must be an absolute URL"
+		} else if parsed.Scheme != "https" && !isLoopbackURL(parsed) {
+			fields[path+".base_url"] = "scheme must be https (or http for loopback)"
 		}
 		if provider.APIKey == "[redacted]" {
 			fields[path+".api_key"] = "cannot contain [redacted] marker"
@@ -234,4 +237,9 @@ func validReasoningMode(value string) bool {
 	default:
 		return false
 	}
+}
+
+func isLoopbackURL(parsed *url.URL) bool {
+	host := parsed.Hostname()
+	return security.IsLoopbackHost(host)
 }

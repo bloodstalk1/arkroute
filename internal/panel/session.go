@@ -7,14 +7,21 @@ import (
 	"time"
 )
 
+const sessionMaxUses = 30
+
+type sessionEntry struct {
+	expires time.Time
+	uses    int
+}
+
 type SessionStore struct {
 	mu     sync.Mutex
 	ttl    time.Duration
-	tokens map[string]time.Time
+	tokens map[string]*sessionEntry
 }
 
 func NewSessionStore(ttl time.Duration) *SessionStore {
-	return &SessionStore{ttl: ttl, tokens: map[string]time.Time{}}
+	return &SessionStore{ttl: ttl, tokens: map[string]*sessionEntry{}}
 }
 
 func (s *SessionStore) Issue() string {
@@ -23,7 +30,7 @@ func (s *SessionStore) Issue() string {
 	token := base64.RawURLEncoding.EncodeToString(raw[:])
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.tokens[token] = time.Now().Add(s.ttl)
+	s.tokens[token] = &sessionEntry{expires: time.Now().Add(s.ttl), uses: 0}
 	return token
 }
 
@@ -33,11 +40,17 @@ func (s *SessionStore) Valid(token string) bool {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	expires, ok := s.tokens[token]
+	entry, ok := s.tokens[token]
 	if !ok {
 		return false
 	}
-	if time.Now().After(expires) {
+	now := time.Now()
+	if now.After(entry.expires) {
+		delete(s.tokens, token)
+		return false
+	}
+	entry.uses++
+	if entry.uses > sessionMaxUses {
 		delete(s.tokens, token)
 		return false
 	}

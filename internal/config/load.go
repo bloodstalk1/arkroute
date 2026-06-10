@@ -1,12 +1,21 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 
 	"gopkg.in/yaml.v3"
 )
 
 func LoadFile(path string) (Config, error) {
+	if runtime.GOOS != "windows" {
+		if info, err := os.Stat(path); err == nil {
+			if mode := info.Mode().Perm(); mode&0o077 != 0 {
+				return Config{}, fmt.Errorf("config file %s has permissive mode %#o (expected 0o600 or stricter): refusing to load", path, mode)
+			}
+		}
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, err

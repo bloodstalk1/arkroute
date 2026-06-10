@@ -85,7 +85,7 @@ Only `openai_compatible` supports streaming. Both `gemini` and `anthropic` passt
 
 - **OpenAI-compatible**: API key via `Authorization: Bearer` header
 - **Anthropic**: API key via `x-api-key` header
-- **Gemini**: API key placed in URL query parameter (`?key=...`), not in headers — this is the only adapter that leaks the key into the URL
+- **Gemini**: API key passed via `x-goog-api-key` header (was previously leaked in URL query — fixed)
 
 ### Snapshot immutability
 

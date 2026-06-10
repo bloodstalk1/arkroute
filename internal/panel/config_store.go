@@ -117,7 +117,7 @@ func (s ConfigStore) SaveAndReload(cfg config.Config, onSave func() error) (Conf
 	if onSave != nil {
 		if err := onSave(); err != nil {
 			if rollbackErr := s.rollbackSave(hasPrevious, backupPath); rollbackErr != nil {
-				return ConfigSaveResult{}, fmt.Errorf("reload failed: %w; rollback failed: %v", err, rollbackErr)
+				return ConfigSaveResult{}, fmt.Errorf("reload failed: %w; rollback failed: %w", err, rollbackErr)
 			}
 			return ConfigSaveResult{}, fmt.Errorf("reload failed: %w (config rolled back)", err)
 		}
@@ -195,13 +195,14 @@ func (s ConfigStore) createBackup() (string, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
-	base := "config-" + s.now().Format("20060102-150405") + ".yaml"
+	stamp := s.now().Format("20060102-150405")
+	base := "config-" + stamp + ".yaml"
 	path := filepath.Join(dir, base)
 	for i := 1; ; i++ {
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			break
 		}
-		path = filepath.Join(dir, fmt.Sprintf("config-%s-%02d.yaml", s.now().Format("20060102-150405"), i))
+		path = filepath.Join(dir, fmt.Sprintf("config-%s-%02d.yaml", stamp, i))
 	}
 	if err := os.WriteFile(path, current, 0o600); err != nil {
 		return "", err

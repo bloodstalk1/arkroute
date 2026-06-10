@@ -24,8 +24,11 @@ func TestBuildRequest(t *testing.T) {
 	if !strings.Contains(out.URL, "/models/gemini-2.5-pro:generateContent") {
 		t.Fatalf("url = %s", out.URL)
 	}
-	if !strings.Contains(out.URL, "key=AIza-test") {
-		t.Fatalf("url missing key: %s", out.URL)
+	if strings.Contains(out.URL, "key=") {
+		t.Fatalf("api key must not be in URL: %s", out.URL)
+	}
+	if got := out.Headers.Get("x-goog-api-key"); got != "AIza-test" {
+		t.Fatalf("x-goog-api-key = %q, want %q", got, "AIza-test")
 	}
 	if !strings.Contains(string(out.Body), `"text":"hello"`) {
 		t.Fatalf("body = %s", out.Body)

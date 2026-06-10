@@ -38,6 +38,8 @@ func Routes(deps Deps) http.Handler {
 	mux.HandleFunc("/internal/setup/provider", withSetupToken(deps.Sessions, handleProvider(deps.ConfigPath, deps.ClaudeSettingsWriter, deps.OnSave)))
 	mux.HandleFunc("/internal/setup/later", withSetupToken(deps.Sessions, handleLater(deps.ConfigPath, deps.OnSave)))
 	mux.HandleFunc("/internal/setup/status", withSetupToken(deps.Sessions, handleGetStatus(deps.ConfigPath)))
+	mux.HandleFunc("/internal/setup/fetch-models", withSetupToken(deps.Sessions, handleFetchModels))
+	mux.HandleFunc("/internal/setup/catalog", withSetupToken(deps.Sessions, handleCatalogList))
 	mux.HandleFunc("/internal/config/export", withSetupToken(deps.Sessions, handleConfigExport(deps.ConfigPath)))
 	mux.HandleFunc("/internal/config/import/validate", withSetupToken(deps.Sessions, handleConfigImportValidate(deps.ConfigPath)))
 	mux.HandleFunc("/internal/config/import/apply", withSetupToken(deps.Sessions, handleConfigImportApply(deps.ConfigPath, deps.OnSave)))
@@ -59,6 +61,9 @@ func servePanelHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	_, _ = w.Write(data)
 }
 
@@ -91,7 +96,7 @@ func handleLater(path string, onSave func() error) http.HandlerFunc {
 		cfg := config.BootstrapLocalConfig(key)
 		_, err = NewConfigStore(path).SaveAndReload(cfg, onSave)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
+			writeJSON(w, httpStatusForSaveError(err), map[string]any{"schema_version": 1, "error": err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"schema_version": 1, "status": "saved", "config": config.Redacted(cfg)})
@@ -122,7 +127,7 @@ func handleProvider(path string, claudeWriter func(config.Config) error, onSave 
 		}
 		_, err = NewConfigStore(path).SaveAndReload(cfg, onSave)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
+			writeJSON(w, httpStatusForSaveError(err), map[string]any{"schema_version": 1, "error": err.Error()})
 			return
 		}
 		claudeActivated := false

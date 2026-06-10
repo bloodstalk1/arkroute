@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bloodstalk1/arkroute/internal/clitools"
@@ -167,8 +166,7 @@ func findAvailableSetupPort(host string, preferred int) (int, error) {
 }
 
 func isLoopbackHost(host string) bool {
-	host = strings.TrimSpace(strings.ToLower(host))
-	return host == "127.0.0.1" || host == "localhost" || host == "::1"
+	return security.IsLoopbackHost(host)
 }
 
 func requestPanelSession(cfg config.Config) (string, error) {
@@ -207,5 +205,13 @@ func runTemporaryPanelServer(path string, host string, port int, store *panel.Se
 		CLITools:             clitools.NewService(path, false),
 	})
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	return http.ListenAndServe(addr, handler)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	return srv.ListenAndServe()
 }

@@ -15,7 +15,7 @@ import (
 type Adapter struct{}
 
 func (a Adapter) BuildRequest(req protocol.Request, provider config.ProviderConfig, model config.ModelConfig) (adapter.UpstreamRequest, error) {
-	endpoint, err := geminiURL(provider.BaseURL, model.UpstreamModel, req.Stream, provider.APIKey)
+	endpoint, err := geminiURL(provider.BaseURL, model.UpstreamModel, req.Stream)
 	if err != nil {
 		return adapter.UpstreamRequest{}, err
 	}
@@ -39,6 +39,7 @@ func (a Adapter) BuildRequest(req protocol.Request, provider config.ProviderConf
 	}
 	headers := http.Header{}
 	headers.Set("Content-Type", "application/json")
+	headers.Set("x-goog-api-key", provider.APIKey)
 	return adapter.UpstreamRequest{Method: http.MethodPost, URL: endpoint, Headers: headers, Body: data}, nil
 }
 
@@ -74,7 +75,7 @@ func (a Adapter) MapResponse(body []byte) (protocol.Response, error) {
 	return resp, nil
 }
 
-func geminiURL(baseURL string, model string, stream bool, apiKey string) (string, error) {
+func geminiURL(baseURL string, model string, stream bool) (string, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return "", err
@@ -84,9 +85,6 @@ func geminiURL(baseURL string, model string, stream bool, apiKey string) (string
 		method = "streamGenerateContent"
 	}
 	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/models/" + url.PathEscape(model) + ":" + method
-	query := parsed.Query()
-	query.Set("key", apiKey)
-	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
 }
 

@@ -5,14 +5,16 @@ import (
 	"time"
 )
 
-func TestSessionStoreAcceptsIssuedTokenOnceBeforeExpiry(t *testing.T) {
+func TestSessionStoreAcceptsIssuedTokenUpToLimit(t *testing.T) {
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	if !store.Valid(token) {
-		t.Fatal("issued token should be valid")
+	for i := 0; i < sessionMaxUses; i++ {
+		if !store.Valid(token) {
+			t.Fatalf("issued token should be valid at use %d/%d", i+1, sessionMaxUses)
+		}
 	}
-	if !store.Valid(token) {
-		t.Fatal("issued token should remain valid until expiry")
+	if store.Valid(token) {
+		t.Fatal("issued token should be invalidated after exceeding use limit")
 	}
 }
 

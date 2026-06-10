@@ -43,7 +43,7 @@ func savePolicyOverride(w http.ResponseWriter, r *http.Request, path string, onS
 	}
 	result, err := store.SaveAndReload(cfg, onSave)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
+		writeJSON(w, httpStatusForSaveError(err), map[string]any{"schema_version": 1, "error": err.Error()})
 		return
 	}
 	inspection, err := policyinspect.InspectModel(cfg, input.ModelID)
@@ -76,7 +76,7 @@ func deletePolicyOverride(w http.ResponseWriter, r *http.Request, path string, o
 	}
 	result, err := store.SaveAndReload(cfg, onSave)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"schema_version": 1, "error": err.Error()})
+		writeJSON(w, httpStatusForSaveError(err), map[string]any{"schema_version": 1, "error": err.Error()})
 		return
 	}
 	inspection, err := policyinspect.InspectModel(cfg, modelID)
@@ -92,16 +92,6 @@ func deletePolicyOverride(w http.ResponseWriter, r *http.Request, path string, o
 		"inspection":     inspection,
 		"config":         config.Redacted(cfg),
 	})
-}
-
-func reloadAfterPanelSave(onSave func() error) error {
-	if onSave == nil {
-		return nil
-	}
-	if err := onSave(); err != nil {
-		return errors.New("reload failed: " + err.Error())
-	}
-	return nil
 }
 
 func policyEditStatus(err error) int {

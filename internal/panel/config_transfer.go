@@ -80,7 +80,7 @@ func handleConfigImportApply(path string, onSave func() error) http.HandlerFunc 
 		}
 		result, err := store.SaveAndReload(cfg, onSave)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, importErrorResponse(err))
+			writeJSON(w, httpStatusForSaveError(err), importErrorResponse(err))
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{

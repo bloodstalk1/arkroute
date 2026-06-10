@@ -60,7 +60,14 @@ func Serve(path string) error {
 		},
 	})
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
-	srv := &http.Server{Addr: addr, Handler: server.Routes()}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           server.Routes(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- srv.ListenAndServe()

@@ -37,12 +37,16 @@ func PrintClaudeActivationSettingsWarning(w io.Writer, cfg config.Config, settin
 }
 
 func printOpenAIClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintln(w, "# OPENAI_API_KEY below is Arkroute's local gateway token (server.client_key),")
+	fmt.Fprintln(w, "# sent as Bearer auth to the local /v1 gateway. It is NOT an upstream provider key.")
 	fmt.Fprintf(w, "export OPENAI_BASE_URL=%s\n", security.ShellQuote(localOpenAIBaseURL(cfg)))
 	fmt.Fprintf(w, "export OPENAI_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "export OPENAI_MODEL=%s\n", security.ShellQuote("sonnet"))
 }
 
 func printDroidClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintln(w, "# OPENAI_API_KEY below is Arkroute's local gateway token (server.client_key),")
+	fmt.Fprintln(w, "# sent as Bearer auth to the local /v1 gateway. It is NOT an upstream provider key.")
 	fmt.Fprintf(w, "export OPENAI_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "export ARKROUTE_OPENAI_BASE_URL=%s\n", security.ShellQuote(localOpenAIBaseURL(cfg)))
 	fmt.Fprintf(w, "export ARKROUTE_OPENAI_MODEL=%s\n", security.ShellQuote("sonnet"))

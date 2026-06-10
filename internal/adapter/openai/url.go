@@ -29,5 +29,5 @@ func ChatCompletionsURL(base string) (string, error) {
 func isOpenCodeGoBase(host string, path string) bool {
 	host = strings.ToLower(host)
 	path = strings.ToLower(path)
-	return strings.Contains(host, "opencode.ai") && strings.HasSuffix(path, "/zen/go")
+	return host == "opencode.ai" && strings.HasSuffix(path, "/zen/go")
 }

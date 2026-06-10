@@ -7,13 +7,14 @@ import (
 	"io"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/security"
 )
 
 func PrintClaudeActivation(w io.Writer, cfg config.Config) {
 	baseURL := localGatewayBaseURL(cfg)
 	fmt.Fprintf(w, "set ANTHROPIC_BASE_URL=%s\n", baseURL)
-	fmt.Fprintf(w, "set ANTHROPIC_AUTH_TOKEN=%s\n", cfg.Server.ClientKey)
-	fmt.Fprintf(w, "set ANTHROPIC_API_KEY=%s\n", cfg.Server.ClientKey)
+	fmt.Fprintf(w, "set ANTHROPIC_AUTH_TOKEN=%s\n", security.ShellQuote(cfg.Server.ClientKey))
+	fmt.Fprintf(w, "set ANTHROPIC_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "set CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1\n")
 	fmt.Fprintf(w, "set CLAUDE_CODE_AUTO_COMPACT_WINDOW=%s\n", claudeAutoCompactWindow)
 }
@@ -36,13 +37,17 @@ func PrintClaudeActivationSettingsWarning(w io.Writer, cfg config.Config, settin
 }
 
 func printOpenAIClientActivation(w io.Writer, cfg config.Config) {
+	fmt.Fprintln(w, "REM OPENAI_API_KEY below is Arkroute's local gateway token (server.client_key),")
+	fmt.Fprintln(w, "REM sent as Bearer auth to the local /v1 gateway. It is NOT an upstream provider key.")
 	fmt.Fprintf(w, "set OPENAI_BASE_URL=%s\n", localOpenAIBaseURL(cfg))
-	fmt.Fprintf(w, "set OPENAI_API_KEY=%s\n", cfg.Server.ClientKey)
+	fmt.Fprintf(w, "set OPENAI_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "set OPENAI_MODEL=sonnet\n")
 }
 
 func printDroidClientActivation(w io.Writer, cfg config.Config) {
-	fmt.Fprintf(w, "set OPENAI_API_KEY=%s\n", cfg.Server.ClientKey)
+	fmt.Fprintln(w, "REM OPENAI_API_KEY below is Arkroute's local gateway token (server.client_key),")
+	fmt.Fprintln(w, "REM sent as Bearer auth to the local /v1 gateway. It is NOT an upstream provider key.")
+	fmt.Fprintf(w, "set OPENAI_API_KEY=%s\n", security.ShellQuote(cfg.Server.ClientKey))
 	fmt.Fprintf(w, "set ARKROUTE_OPENAI_BASE_URL=%s\n", localOpenAIBaseURL(cfg))
 	fmt.Fprintf(w, "set ARKROUTE_OPENAI_MODEL=sonnet\n")
 	fmt.Fprintln(w, "REM droidrun run --provider OpenAILike --model \"%ARKROUTE_OPENAI_MODEL%\" --api_base \"%ARKROUTE_OPENAI_BASE_URL%\" \"Open the settings app\"")
