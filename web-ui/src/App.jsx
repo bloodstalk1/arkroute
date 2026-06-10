@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildFetchModelsPayload,
-  envNameForProvider,
   fetchModelsFailureStatus,
   modelFetchCacheKey,
   shouldAutoFetchModels,
@@ -149,24 +148,6 @@ function ProviderCard({ provider }) {
         <DataRow label="Key">{providerKeySummary(provider)}</DataRow>
       </div>
     </article>
-  );
-}
-
-
-function ProviderPresetButton({ preset, active, onSelect }) {
-  return (
-    <button
-      className={`provider-preset ${active ? "active" : ""}`}
-      type="button"
-      onClick={() => onSelect(preset.id)}
-    >
-      <span className="preset-icon"><i className="ph-light ph-plugs-connected"></i></span>
-      <span className="preset-copy">
-        <strong>{preset.name}</strong>
-        <small>{preset.default_model || "custom model"}</small>
-      </span>
-      <code>{preset.type || "auto"}</code>
-    </button>
   );
 }
 
