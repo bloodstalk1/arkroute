@@ -1,4 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildFetchModelsPayload,
+  envNameForProvider,
+  fetchModelsFailureStatus,
+  modelFetchCacheKey,
+  shouldAutoFetchModels,
+} from "./modelFetch.js";
+import {
+  buildProviderSetupPayload,
+  formFromPreset,
+  formFromProvider,
+  initialProviderForm,
+  providerKeySummary,
+  validateProviderForm,
+} from "./providerSetup.js";
+
 
 const setupToken = new URLSearchParams(window.location.hash.slice(1)).get("setup_token") || "";
 const assetPath = (path) => `${import.meta.env.BASE_URL}${path}`;
@@ -23,24 +39,6 @@ const NAV_ITEMS = [
   { id: "cli-tools", icon: "ph-terminal-window", label: "CLI Tools" },
   { id: "system", icon: "ph-cpu", label: "System" }
 ];
-
-function envNameForProvider(id) {
-  switch (id) {
-    case "openrouter":
-      return "OPENROUTER_API_KEY";
-    case "anthropic":
-      return "ANTHROPIC_API_KEY";
-    case "gemini":
-      return "GEMINI_API_KEY";
-    case "openai-compatible":
-      return "OPENAI_API_KEY";
-    case "opencode-go":
-    case "opencode-zen":
-      return "OPENCODE_API_KEY";
-    default:
-      return "";
-  }
-}
 
 function formatLogTime(timeStr) {
   try {
@@ -82,7 +80,7 @@ function logMessage(item) {
   }
 }
 
-function PageHeader({ icon, eyebrow, title, description, stats = [] }) {
+function PageHeader({ icon, eyebrow, title, description, stats = [], action = null }) {
   return (
     <header className="page-header">
       <div className="title-stack">
@@ -90,16 +88,19 @@ function PageHeader({ icon, eyebrow, title, description, stats = [] }) {
         <h1>{title}</h1>
         <p className="muted">{description}</p>
       </div>
-      {stats.length > 0 && (
-        <div className="header-metrics">
-          {stats.map((stat) => (
-            <div className="metric" key={stat.label}>
-              <span>{stat.label}</span>
-              <strong>{stat.value}</strong>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="header-actions">
+        {stats.length > 0 && (
+          <div className="header-metrics">
+            {stats.map((stat) => (
+              <div className="metric" key={stat.label}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+        {action}
+      </div>
     </header>
   );
 }
@@ -133,7 +134,6 @@ function EmptyState({ icon, title, children }) {
 }
 
 function ProviderCard({ provider }) {
-  const apiKey = provider.api_key || "";
   return (
     <article className="operator-card span-2">
       <div className="card-heading">
@@ -146,11 +146,12 @@ function ProviderCard({ provider }) {
       <div className="data-grid">
         <DataRow label="Protocol">{provider.type || "auto"}</DataRow>
         <DataRow label="Base URL">{provider.base_url}</DataRow>
-        <DataRow label="Key">{apiKey.startsWith("env:") ? `env:${apiKey.slice(4)}` : "stored in config"}</DataRow>
+        <DataRow label="Key">{providerKeySummary(provider)}</DataRow>
       </div>
     </article>
   );
 }
+
 
 function ProviderPresetButton({ preset, active, onSelect }) {
   return (
@@ -169,11 +170,14 @@ function ProviderPresetButton({ preset, active, onSelect }) {
   );
 }
 
-function ProviderSetupPanel({
+function ProviderSetupDrawer({
+  open,
   form,
+  errors,
   presets,
   loading,
   status,
+  saveResult,
   showAdvanced,
   providerNameOptions,
   baseUrlOptions,
@@ -182,197 +186,183 @@ function ProviderSetupPanel({
   exposedAliasOptions,
   fetchingModels,
   fetchModelsStatus,
+  deleteConfirmProviderId,
   onPresetChange,
   onInputChange,
   onSaveSetup,
-  onSetupLater,
+  onClose,
   onToggleAdvanced,
-  onFetchModels
+  onFetchModels,
+  onDeleteProvider,
+  onDeleteConfirmChange,
 }) {
+  if (!open) return null;
+  const isEdit = form.mode === "edit";
   return (
-    <form className="operator-panel setup-panel provider-setup-panel" onSubmit={(event) => event.preventDefault()}>
-      <section className="panel-section">
-        <div className="section-heading">
-          <span>01</span>
-          <div>
-            <h2>Provider setup</h2>
-            <p>Choose an agent preset, key source, and gateway route.</p>
-          </div>
+    <aside className="provider-drawer" aria-label={isEdit ? "Edit provider" : "Add provider"}>
+      <div className="drawer-header">
+        <div>
+          <span className="eyebrow"><i className="ph-fill ph-plugs-connected"></i>{isEdit ? "edit upstream" : "new upstream"}</span>
+          <h2>{isEdit ? "Edit provider" : "Add provider"}</h2>
+          <p className="muted">Choose a preset, key source, model, route, and Claude activation behavior.</p>
         </div>
+        <button className="icon-button" type="button" onClick={onClose} aria-label="Close provider drawer">
+          <i className="ph-bold ph-x"></i>
+        </button>
+      </div>
 
-        <div className="field-grid">
-          <div className="field">
-            <label htmlFor="preset">Agent preset</label>
-            <select id="preset" value={form.preset_id} onChange={onPresetChange}>
-              {presets.length === 0 ? (
-                <option value="">Loading presets...</option>
-              ) : (
-                presets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>{preset.name}</option>
-                ))
-              )}
-            </select>
-          </div>
+      <div className="drawer-steps" aria-label="Setup steps">
+        <span className="done">Provider</span>
+        <span className={form.api_key_mode ? "done" : ""}>Key</span>
+        <span className={form.upstream_model && form.route_alias ? "done" : ""}>Model</span>
+        <span className={form.activate_claude ? "done" : ""}>CLI</span>
+      </div>
 
-          <div className="field">
-            <label>API key mode</label>
-            <div className="radio-group">
-              <label className="radio-label">
-                <input type="radio" name="api-key-mode" value="env" checked={form.api_key_mode === "env"} onChange={() => onInputChange("api_key_mode", "env")} />
-                <span>Environment</span>
-              </label>
-              <label className="radio-label">
-                <input type="radio" name="api-key-mode" value="config" checked={form.api_key_mode === "config"} onChange={() => onInputChange("api_key_mode", "config")} />
-                <span>Config</span>
-              </label>
+      <form className="drawer-body" onSubmit={(event) => event.preventDefault()}>
+        <section className="drawer-section">
+          <div className="section-heading">
+            <span>01</span>
+            <div>
+              <h3>Provider preset</h3>
+              <p>Pick the upstream service Arkroute should route through.</p>
             </div>
           </div>
-        </div>
-
-        {form.api_key_mode === "env" ? (
-          <div className="terminal-note">
-            <i className="ph-light ph-terminal-window"></i>
-            <span>export {form.env_name || "API_KEY"}=...</span>
-          </div>
-        ) : (
-          <div className="field">
-            <label htmlFor="api-key">API key</label>
-            <input id="api-key" type="password" placeholder="sk-..." value={form.api_key} onChange={(event) => onInputChange("api_key", event.target.value)} />
-          </div>
-        )}
-      </section>
-
-      <section className="panel-section compact">
-        <div className="checkbox-field">
-          <label className="checkbox-label">
-            <input id="activate-claude" type="checkbox" checked={form.activate_claude} onChange={(event) => onInputChange("activate_claude", event.target.checked)} />
-            <span>Activate Claude Code after save</span>
-          </label>
-        </div>
-      </section>
-
-      <button className="advanced-toggle" type="button" onClick={onToggleAdvanced}>
-        <i className={`ph-bold ph-caret-${showAdvanced ? "up" : "down"}`}></i>
-        <span>Advanced mapping</span>
-      </button>
-
-      {showAdvanced && (
-        <section className="panel-section advanced-fields">
           <div className="field-grid">
-            <div className="field">
-              <label htmlFor="provider-name">Provider name</label>
-              <input id="provider-name" type="text" list="provider-name-options" value={form.provider_name} onChange={(event) => onInputChange("provider_name", event.target.value)} />
-              <datalist id="provider-name-options">
-                {providerNameOptions.map((option) => <option key={option} value={option} />)}
-              </datalist>
-            </div>
-
-            <div className="field">
-              <label htmlFor="provider-type">Protocol</label>
-              <select id="provider-type" value={form.type} onChange={(event) => onInputChange("type", event.target.value)}>
-                {PROTOCOL_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <div className={`field ${errors.preset_id ? "field-error" : ""}`}>
+              <label htmlFor="preset">Provider</label>
+              <select id="preset" value={form.preset_id} onChange={onPresetChange}>
+                {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
               </select>
+              {errors.preset_id && <small>{errors.preset_id}</small>}
             </div>
-
-            <div className="field span-2">
+            <div className={`field ${errors.base_url ? "field-error" : ""}`}>
               <label htmlFor="base-url">Base URL</label>
               <input id="base-url" type="text" list="base-url-options" value={form.base_url} onChange={(event) => onInputChange("base_url", event.target.value)} />
-              <datalist id="base-url-options">
-                {baseUrlOptions.map((option) => <option key={option} value={option} />)}
-              </datalist>
+              <datalist id="base-url-options">{baseUrlOptions.map((option) => <option key={option} value={option} />)}</datalist>
+              {errors.base_url && <small>{errors.base_url}</small>}
             </div>
+          </div>
+        </section>
 
-            {form.api_key_mode === "env" && (
-              <div className="field">
-                <label htmlFor="env-name">Env name</label>
-                <input id="env-name" type="text" list="env-name-options" value={form.env_name} onChange={(event) => onInputChange("env_name", event.target.value)} />
-                <datalist id="env-name-options">
-                  {envNameOptions.map((option) => <option key={option} value={option} />)}
-                </datalist>
-              </div>
-            )}
+        <section className="drawer-section">
+          <div className="section-heading">
+            <span>02</span>
+            <div>
+              <h3>Key source</h3>
+              <p>Use an environment variable for safer local setup, or store a key in config.</p>
+            </div>
+          </div>
+          <div className="segmented-control">
+            <button type="button" className={form.api_key_mode === "env" ? "active" : ""} onClick={() => onInputChange("api_key_mode", "env")}>Environment</button>
+            <button type="button" className={form.api_key_mode === "config" ? "active" : ""} onClick={() => onInputChange("api_key_mode", "config")}>Config</button>
+          </div>
+          {form.api_key_mode === "env" ? (
+            <div className={`field ${errors.env_name ? "field-error" : ""}`}>
+              <label htmlFor="env-name">Environment variable</label>
+              <input id="env-name" type="text" list="env-name-options" value={form.env_name} onChange={(event) => onInputChange("env_name", event.target.value)} />
+              <datalist id="env-name-options">{envNameOptions.map((option) => <option key={option} value={option} />)}</datalist>
+              <div className="terminal-note"><i className="ph-light ph-terminal-window"></i><span>export {form.env_name || "API_KEY"}=...</span></div>
+              {errors.env_name && <small>{errors.env_name}</small>}
+            </div>
+          ) : (
+            <div className={`field ${errors.api_key ? "field-error" : ""}`}>
+              <label htmlFor="api-key">API key</label>
+              <input id="api-key" type="password" aria-describedby="api-key-help" value={form.api_key} onChange={(event) => onInputChange("api_key", event.target.value)} />
+              <small id="api-key-help">{isEdit ? "Leave blank to keep the existing config key." : "Enter the provider API key."}</small>
+              {errors.api_key && <small>{errors.api_key}</small>}
+            </div>
+          )}
+        </section>
 
-            <div className="field">
+        <section className="drawer-section">
+          <div className="section-heading">
+            <span>03</span>
+            <div>
+              <h3>Model and route</h3>
+              <p>Choose the upstream model and the local name clients will request.</p>
+            </div>
+          </div>
+          <div className="field-grid">
+            <div className={`field ${errors.upstream_model ? "field-error" : ""}`}>
               <div className="field-label-row">
                 <label htmlFor="upstream-model">Upstream model</label>
-                <button
-                  type="button"
-                  className="btn-tertiary"
-                  onClick={onFetchModels}
-                  disabled={fetchingModels || !form.preset_id || !form.base_url}
-                  title="Fetch the live model list from the upstream provider using the configured API key"
-                  style={{ marginLeft: "auto", padding: "4px 10px", fontSize: "0.85em" }}
-                >
-                  {fetchingModels ? "Fetching…" : "↻ Fetch live"}
+                <button type="button" className="btn-tertiary compact-action" onClick={onFetchModels} disabled={fetchingModels || !form.preset_id || !form.base_url}>
+                  <i className="ph-bold ph-arrows-clockwise"></i>{fetchingModels ? "Fetching" : "Fetch live"}
                 </button>
               </div>
-              <select
-                id="upstream-model"
-                value={form.upstream_model && !upstreamModelOptions.some((option) => option.value === form.upstream_model) ? "__custom__" : (form.upstream_model || "")}
-                onChange={(event) => {
-                  if (event.target.value === "__custom__") {
-                    onInputChange("upstream_model", "");
-                  } else {
-                    onInputChange("upstream_model", event.target.value);
-                  }
-                }}
-              >
-                <option value="" disabled>— pick a model —</option>
-                {upstreamModelOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-                <option value="__custom__">Other (type a custom model ID)</option>
-              </select>
-              {(form.upstream_model === "" || !upstreamModelOptions.some((option) => option.value === form.upstream_model)) && (
-                <input
-                  id="upstream-model-custom"
-                  type="text"
-                  placeholder="custom model id, e.g. anthropic/claude-3-5-sonnet-20241022"
-                  value={form.upstream_model}
-                  onChange={(event) => onInputChange("upstream_model", event.target.value)}
-                  style={{ marginTop: "6px" }}
-                />
-              )}
-              {fetchModelsStatus?.text && (
-                <small className={`status-inline status-${fetchModelsStatus.type}`} style={{ marginTop: "4px", opacity: 0.85 }}>
-                  {fetchModelsStatus.text}
-                </small>
-              )}
-              <datalist id="upstream-model-options" hidden>
+              <select id="upstream-model" value={form.upstream_model || ""} onChange={(event) => onInputChange("upstream_model", event.target.value)}>
+                <option value="" disabled>Pick a model</option>
                 {upstreamModelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </datalist>
+              </select>
+              <input className="custom-model-input" type="text" aria-label="Custom upstream model ID" value={form.upstream_model} onChange={(event) => onInputChange("upstream_model", event.target.value)} />
+              {fetchModelsStatus?.text && <small className={`status-inline status-${fetchModelsStatus.type}`}>{fetchModelsStatus.text}</small>}
+              {errors.upstream_model && <small>{errors.upstream_model}</small>}
             </div>
-
-            <div className="field">
-              <label htmlFor="exposed-alias">Exposed alias</label>
+            <div className={`field ${errors.exposed_alias ? "field-error" : ""}`}>
+              <label htmlFor="exposed-alias">Client model name</label>
               <input id="exposed-alias" type="text" list="exposed-alias-options" value={form.exposed_alias} onChange={(event) => onInputChange("exposed_alias", event.target.value)} />
-              <datalist id="exposed-alias-options">
-                {exposedAliasOptions.map((option) => <option key={option} value={option} />)}
-              </datalist>
+              <datalist id="exposed-alias-options">{exposedAliasOptions.map((option) => <option key={option} value={option} />)}</datalist>
+              {errors.exposed_alias && <small>{errors.exposed_alias}</small>}
             </div>
-
-            <div className="field">
+            <div className={`field ${errors.route_alias ? "field-error" : ""}`}>
               <label htmlFor="route-alias">Route alias</label>
               <select id="route-alias" value={form.route_alias} onChange={(event) => onInputChange("route_alias", event.target.value)}>
                 {ROUTE_ALIASES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
+              {errors.route_alias && <small>{errors.route_alias}</small>}
             </div>
           </div>
         </section>
-      )}
 
-      <div className="actions">
-        <button id="save-setup" type="button" onClick={onSaveSetup} disabled={loading}>
-          <i className="ph-bold ph-floppy-disk"></i>
-          Save & Setup
+        <section className="drawer-section compact">
+          <label className="checkbox-label">
+            <input id="activate-claude" type="checkbox" checked={form.activate_claude} onChange={(event) => onInputChange("activate_claude", event.target.checked)} />
+            <span>Activate Claude Code after save</span>
+          </label>
+        </section>
+
+        <button className="advanced-toggle" type="button" onClick={onToggleAdvanced}>
+          <i className={`ph-bold ph-caret-${showAdvanced ? "up" : "down"}`}></i>
+          <span>Advanced mapping</span>
         </button>
-        <button id="setup-later" type="button" className="btn-secondary" onClick={onSetupLater} disabled={loading}>
-          Setup Later
+
+        {showAdvanced && (
+          <section className="drawer-section advanced-fields">
+            <div className="field-grid">
+              <div className="field">
+                <label htmlFor="provider-name">Provider name</label>
+                <input id="provider-name" type="text" list="provider-name-options" value={form.provider_name} onChange={(event) => onInputChange("provider_name", event.target.value)} />
+                <datalist id="provider-name-options">{providerNameOptions.map((option) => <option key={option} value={option} />)}</datalist>
+              </div>
+              <div className="field">
+                <label htmlFor="provider-type">Protocol</label>
+                <select id="provider-type" value={form.type} onChange={(event) => onInputChange("type", event.target.value)}>
+                  {PROTOCOL_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {saveResult?.text && <div className={`status-box ${saveResult.type}`}>{saveResult.text}</div>}
+        {status.text && !saveResult?.text && <div className={`status-box ${status.type}`}>{status.text}</div>}
+      </form>
+
+      <div className="drawer-actions">
+        {isEdit && (
+          deleteConfirmProviderId === form.preset_id ? (
+            <button className="btn-danger" type="button" onClick={() => onDeleteProvider(form.preset_id)} disabled={loading}>Confirm remove</button>
+          ) : (
+            <button className="btn-danger subtle" type="button" onClick={() => onDeleteConfirmChange(form.preset_id)} disabled={loading}>Remove provider</button>
+          )
+        )}
+        <div className="drawer-action-spacer"></div>
+        <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
+        <button id="save-setup" type="button" onClick={onSaveSetup} disabled={loading}>
+          <i className="ph-bold ph-floppy-disk"></i>{isEdit ? "Save changes" : "Save provider"}
         </button>
       </div>
-
-      {status.text && <div className={`status-box ${status.type}`} id="status">{status.text}</div>}
-    </form>
+    </aside>
   );
 }
 
@@ -773,6 +763,8 @@ function App() {
   const [fetchedModels, setFetchedModels] = useState({});
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchModelsStatus, setFetchModelsStatus] = useState({ text: "", type: "" });
+  const modelFetchCacheRef = useRef(new Set());
+  const modelFetchInFlightRef = useRef("");
 
   const [cliTools, setCliTools] = useState([]);
   const [cliToolsStatus, setCliToolsStatus] = useState({ text: "", type: "" });
@@ -792,19 +784,11 @@ function App() {
   const [configTransferStatus, setConfigTransferStatus] = useState({ text: "", type: "" });
   const [configImportSummary, setConfigImportSummary] = useState(null);
 
-  const [form, setForm] = useState({
-    preset_id: "",
-    provider_name: "",
-    base_url: "",
-    type: "",
-    api_key_mode: "env",
-    api_key: "",
-    env_name: "",
-    upstream_model: "",
-    exposed_alias: "",
-    route_alias: "",
-    activate_claude: true
-  });
+  const [form, setForm] = useState(initialProviderForm);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [saveResult, setSaveResult] = useState(null);
+  const [deleteConfirmProviderId, setDeleteConfirmProviderId] = useState("");
 
   const apiHeaders = useMemo(() => ({
     "Content-Type": "application/json",
@@ -817,17 +801,9 @@ function App() {
   const configState = providerCount > 0 ? "Configured" : "Bootstrap";
 
   const fillPreset = useCallback((preset) => {
-    setForm((prev) => ({
-      ...prev,
-      preset_id: preset.id || "",
-      provider_name: preset.name || "",
-      base_url: preset.base_url || "",
-      type: preset.type || "",
-      upstream_model: preset.default_model || "",
-      exposed_alias: preset.default_alias || "",
-      route_alias: preset.default_route || "",
-      env_name: preset.id ? envNameForProvider(preset.id) : ""
-    }));
+    setForm((prev) => formFromPreset(preset, prev));
+    setFormErrors({});
+    setSaveResult(null);
   }, []);
 
   const loadStatus = useCallback((cancelled = () => false) => {
@@ -945,48 +921,82 @@ function App() {
     };
   }, [apiHeaders, fillPreset, loadStatus]);
 
-  const fetchLiveModels = useCallback(async () => {
-    if (!form.preset_id) {
-      setFetchModelsStatus({ text: "Select a provider first.", type: "error" });
+  const fetchLiveModels = useCallback(async ({ automatic = false, force = false } = {}) => {
+    if (!shouldAutoFetchModels(form)) {
+      if (!automatic) {
+        setFetchModelsStatus({
+          text: form.preset_id ? "Set a base URL first." : "Select a provider first.",
+          type: "error",
+        });
+      }
       return;
     }
-    if (!form.base_url) {
-      setFetchModelsStatus({ text: "Set a base URL first.", type: "error" });
+
+    const cacheKey = modelFetchCacheKey(form);
+    if (!force && modelFetchCacheRef.current.has(cacheKey)) {
       return;
     }
+    if (modelFetchInFlightRef.current === cacheKey) {
+      return;
+    }
+
+    modelFetchInFlightRef.current = cacheKey;
     setFetchingModels(true);
-    setFetchModelsStatus({ text: "Fetching live model list…", type: "info" });
+    setFetchModelsStatus({ text: automatic ? "Loading live model list…" : "Fetching live model list…", type: "info" });
+
+    const isCurrentRequest = () => modelFetchInFlightRef.current === cacheKey;
     try {
       const resp = await fetch("/internal/setup/fetch-models", {
         method: "POST",
         headers: { ...apiHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          preset_id: form.preset_id,
-          base_url: form.base_url,
-          api_key: form.api_key_mode === "config" ? form.api_key : "",
-          protocol: form.type === "auto" ? "" : form.type,
-        }),
+        body: JSON.stringify(buildFetchModelsPayload(form)),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const reason = data.auth_error
-          ? "Upstream rejected the API key. Falling back to curated list."
-          : `Fetch failed (${resp.status}). Falling back to curated list.`;
-        setFetchModelsStatus({ text: reason, type: "error" });
+        if (isCurrentRequest()) {
+          setFetchModelsStatus(fetchModelsFailureStatus(data, resp.status, { automatic }));
+        }
         return;
       }
       const liveModels = (data.fetched && data.fetched.models) || [];
+      modelFetchCacheRef.current.add(cacheKey);
       setFetchedModels((prev) => ({ ...prev, [form.preset_id]: liveModels }));
-      setFetchModelsStatus({
-        text: `Loaded ${liveModels.length} live model${liveModels.length === 1 ? "" : "s"} from upstream.`,
-        type: "ok",
-      });
+      if (isCurrentRequest()) {
+        setFetchModelsStatus({
+          text: `Loaded ${liveModels.length} live model${liveModels.length === 1 ? "" : "s"} from upstream.`,
+          type: "ok",
+        });
+      }
     } catch (err) {
-      setFetchModelsStatus({ text: `Fetch error: ${err.message}`, type: "error" });
+      if (isCurrentRequest()) {
+        setFetchModelsStatus({ text: `Fetch error: ${err.message}`, type: "error" });
+      }
     } finally {
-      setFetchingModels(false);
+      if (isCurrentRequest()) {
+        modelFetchInFlightRef.current = "";
+        setFetchingModels(false);
+      }
     }
-  }, [apiHeaders, form.preset_id, form.base_url, form.api_key, form.api_key_mode, form.type]);
+  }, [apiHeaders, form.preset_id, form.base_url, form.api_key, form.api_key_mode, form.env_name, form.type]);
+
+  useEffect(() => {
+    if (!shouldAutoFetchModels(form)) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      fetchLiveModels({ automatic: true });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    fetchLiveModels,
+    form.preset_id,
+    form.base_url,
+    form.api_key,
+    form.api_key_mode,
+    form.env_name,
+    form.type,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1180,6 +1190,30 @@ function App() {
     selectPresetById(event.target.value);
   };
 
+  const openAddProvider = () => {
+    const firstPreset = presets[0];
+    setForm(firstPreset ? formFromPreset(firstPreset, initialProviderForm()) : initialProviderForm());
+    setFormErrors({});
+    setSaveResult(null);
+    setShowAdvanced(false);
+    setDrawerOpen(true);
+  };
+
+  const openEditProvider = (provider) => {
+    setForm(formFromProvider(provider, config?.models || [], config?.routes || [], presets));
+    setFormErrors({});
+    setSaveResult(null);
+    setShowAdvanced(false);
+    setDrawerOpen(true);
+  };
+
+  const closeProviderDrawer = () => {
+    setDrawerOpen(false);
+    setFormErrors({});
+    setSaveResult(null);
+    setDeleteConfirmProviderId("");
+  };
+
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -1259,42 +1293,38 @@ function App() {
   };
 
   const handleSaveSetup = async () => {
-    setLoading(true);
-    setStatus({ text: "Saving provider configuration...", type: "" });
-    try {
-      const payload = {
-        preset_id: form.preset_id,
-        provider_name: form.provider_name,
-        base_url: form.base_url,
-        type: form.type,
-        api_key_mode: form.api_key_mode,
-        api_key: form.api_key_mode === "config" ? form.api_key : "",
-        env_name: form.api_key_mode === "env" ? form.env_name : "",
-        upstream_model: form.upstream_model,
-        exposed_alias: form.exposed_alias,
-        route_alias: form.route_alias,
-        activate_claude: form.activate_claude
-      };
+    const errors = validateProviderForm(form);
+    setFormErrors(errors);
+    setSaveResult(null);
+    if (Object.keys(errors).length > 0) {
+      setStatus({ text: "Fix the highlighted fields before saving.", type: "error" });
+      return;
+    }
 
+    setLoading(true);
+    setStatus({ text: form.mode === "edit" ? "Saving provider changes..." : "Saving provider configuration...", type: "" });
+    try {
       const resp = await fetch("/internal/setup/provider", {
         method: "POST",
         headers: apiHeaders,
-        body: JSON.stringify(payload)
+        body: JSON.stringify(buildProviderSetupPayload(form)),
       });
       const data = await resp.json();
       if (!resp.ok) {
-        setStatus({ text: `Error: ${data.error || resp.statusText}`, type: "error" });
+        setStatus({ text: data.error || resp.statusText, type: "error" });
         return;
       }
 
-      let msg = "Configuration saved.";
+      let msg = form.mode === "edit" ? "Provider changes saved." : "Provider saved.";
       let isErr = false;
       if (data.claude_activated) {
         msg += " Claude Code activated.";
-      } else if (payload.activate_claude) {
+      } else if (form.activate_claude) {
         msg += ` Claude activation failed: ${data.claude_error || "unknown error"}.`;
         isErr = true;
       }
+      setConfig(data.config);
+      setSaveResult({ text: msg, type: isErr ? "error" : "ok" });
       setStatus({ text: msg, type: isErr ? "error" : "ok" });
       loadStatus();
     } catch (err) {
@@ -1304,20 +1334,25 @@ function App() {
     }
   };
 
-  const handleSetupLater = async () => {
+  const handleDeleteProvider = async (providerId) => {
     setLoading(true);
-    setStatus({ text: "Saving bootstrap config...", type: "" });
+    setStatus({ text: "Removing provider...", type: "" });
     try {
-      const resp = await fetch("/internal/setup/later", { method: "POST", headers: apiHeaders });
-      const data = await resp.json();
+      const resp = await fetch(`/internal/setup/provider?id=${encodeURIComponent(providerId)}`, {
+        method: "DELETE",
+        headers: apiHeaders,
+      });
+      const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        setStatus({ text: `Error: ${data.error || resp.statusText}`, type: "error" });
+        setStatus({ text: data.error || "Remove failed", type: "error" });
         return;
       }
-      setStatus({ text: "Bootstrap config saved.", type: "ok" });
+      setConfig(data.config);
+      setStatus({ text: "Provider removed.", type: "ok" });
+      closeProviderDrawer();
       loadStatus();
     } catch (err) {
-      setStatus({ text: `Request failed: ${err.message}`, type: "error" });
+      setStatus({ text: `Remove failed: ${err.message}`, type: "error" });
     } finally {
       setLoading(false);
     }
@@ -1426,99 +1461,91 @@ function App() {
             icon="ph-hard-drive"
             eyebrow="gateway agents"
             title="Providers"
-            description="Pick an agent preset, configure its key, and keep configured upstreams in view."
-            stats={[
+            description={providerCount > 0 ? "Manage upstream providers and keep the setup path close." : "Add your first upstream provider to start routing local CLI traffic."}
+            stats={providerCount > 0 ? [
               { label: "enabled", value: providerCount },
               { label: "routes", value: routeCount },
               { label: "models", value: modelCount }
-            ]}
+            ] : []}
+            action={<button type="button" className="primary-button" onClick={openAddProvider}><i className="ph-bold ph-plus"></i>Add provider</button>}
           />
 
-          <div className="provider-workbench">
-            <section className="operator-card provider-catalog">
-              <div className="card-heading">
-                <div>
-                  <StatusBadge tone={presets.length > 0 ? "ok" : "pending"}>{presets.length || "loading"}</StatusBadge>
-                  <h3><i className="ph-light ph-plugs"></i>Agent presets</h3>
-                </div>
-              </div>
-              <div className="preset-list">
-                {presets.length > 0 ? (
-                  presets.map((preset) => (
-                    <ProviderPresetButton
-                      active={form.preset_id === preset.id}
-                      key={preset.id}
-                      preset={preset}
-                      onSelect={selectPresetById}
-                    />
-                  ))
-                ) : (
-                  <EmptyState icon="ph-plugs" title="Loading presets">Provider options are loaded from the setup session.</EmptyState>
-                )}
-              </div>
+          {providerCount === 0 ? (
+            <section className="first-run-panel">
+              <EmptyState icon="ph-plugs-connected" title="Add your first provider">
+                Choose a provider preset, key source, upstream model, and route alias. Arkroute will keep the local gateway config in sync.
+              </EmptyState>
+              <button type="button" className="primary-button first-run-action" onClick={openAddProvider}>
+                <i className="ph-bold ph-plus"></i>Add first provider
+              </button>
             </section>
+          ) : (
+            <>
+              <section className="provider-dashboard">
+                <div className="operator-grid configured-provider-grid">
+                  {config.providers.map((provider) => (
+                    <article className="provider-row-card" key={provider.id}>
+                      <ProviderCard provider={provider} />
+                      <div className="provider-row-actions">
+                        <button type="button" className="secondary-button" onClick={() => openEditProvider(provider)}>
+                          <i className="ph-light ph-pencil-simple-line"></i>Edit
+                        </button>
+                        <button type="button" className="secondary-button" onClick={() => setSelectedProviderId(provider.id)}>
+                          <i className="ph-light ph-crosshair"></i>Inspect
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
 
-            <ProviderSetupPanel
-              baseUrlOptions={baseUrlOptions}
-              envNameOptions={envNameOptions}
-              exposedAliasOptions={exposedAliasOptions}
-              form={form}
-              loading={loading}
-              presets={presets}
-              providerNameOptions={providerNameOptions}
-              showAdvanced={showAdvanced}
-              status={status}
-              upstreamModelOptions={upstreamModelOptions}
-              fetchingModels={fetchingModels}
-              fetchModelsStatus={fetchModelsStatus}
-              onInputChange={handleInputChange}
-              onPresetChange={handlePresetChange}
-              onSaveSetup={handleSaveSetup}
-              onSetupLater={handleSetupLater}
-              onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
-              onFetchModels={fetchLiveModels}
-            />
-          </div>
-
-          <section className="configured-provider-section">
-            <div className="section-title-row">
-              <div>
-                <span className="eyebrow"><i className="ph-fill ph-database"></i>active upstreams</span>
-                <h2>Configured providers</h2>
+              <div className="detail-workbench">
+                <ProviderDetail
+                  provider={(config?.providers || []).find((provider) => provider.id === selectedProviderId)}
+                  models={config?.models || []}
+                  routes={config?.routes || []}
+                  onSelectModel={(modelId) => {
+                    setSelectedModelId(modelId);
+                    loadCLIContext({ model_id: modelId });
+                    setActiveTab("models");
+                  }}
+                  onSelectRoute={(routeAlias) => {
+                    setSelectedRouteAlias(routeAlias);
+                    loadCLIContext({ route_alias: routeAlias });
+                    setActiveTab("models");
+                  }}
+                />
+                <CLIContextPanel context={cliContext} status={cliContextStatus} onCopy={copyCLICommand} />
               </div>
-              <StatusBadge tone={providerCount > 0 ? "ok" : "pending"}>{providerCount > 0 ? `${providerCount} enabled` : "empty"}</StatusBadge>
-            </div>
-            <div className="operator-grid configured-provider-grid">
-              {providerCount > 0 ? (
-                config.providers.map((provider) => (
-                  <button className="provider-card-button" type="button" key={provider.id} onClick={() => setSelectedProviderId(provider.id)}>
-                    <ProviderCard provider={provider} />
-                  </button>
-                ))
-              ) : (
-                <EmptyState icon="ph-database" title="No providers">Choose an agent preset above and save the gateway setup.</EmptyState>
-              )}
-            </div>
-          </section>
+            </>
+          )}
 
-          <div className="detail-workbench">
-            <ProviderDetail
-              provider={(config?.providers || []).find((provider) => provider.id === selectedProviderId)}
-              models={config?.models || []}
-              routes={config?.routes || []}
-              onSelectModel={(modelId) => {
-                setSelectedModelId(modelId);
-                loadCLIContext({ model_id: modelId });
-                setActiveTab("models");
-              }}
-              onSelectRoute={(routeAlias) => {
-                setSelectedRouteAlias(routeAlias);
-                loadCLIContext({ route_alias: routeAlias });
-                setActiveTab("models");
-              }}
-            />
-            <CLIContextPanel context={cliContext} status={cliContextStatus} onCopy={copyCLICommand} />
-          </div>
+          <ProviderSetupDrawer
+            open={drawerOpen}
+            baseUrlOptions={baseUrlOptions}
+            envNameOptions={envNameOptions}
+            exposedAliasOptions={exposedAliasOptions}
+            form={form}
+            errors={formErrors}
+            loading={loading}
+            presets={presets}
+            providerNameOptions={providerNameOptions}
+            showAdvanced={showAdvanced}
+            status={status}
+            saveResult={saveResult}
+            upstreamModelOptions={upstreamModelOptions}
+            fetchingModels={fetchingModels}
+            fetchModelsStatus={fetchModelsStatus}
+            deleteConfirmProviderId={deleteConfirmProviderId}
+            onInputChange={handleInputChange}
+            onPresetChange={handlePresetChange}
+            onSaveSetup={handleSaveSetup}
+            onClose={closeProviderDrawer}
+            onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+            onFetchModels={() => fetchLiveModels({ force: true })}
+            onDeleteProvider={handleDeleteProvider}
+            onDeleteConfirmChange={setDeleteConfirmProviderId}
+          />
         </div>
 
         <div className={`tab-content ${activeTab === "models" ? "active" : ""}`}>
