@@ -108,10 +108,14 @@ func NormalizeResponsesRequest(req ResponsesRequest) (protocol.Request, router.R
 func normalizeResponsesTools(tools []ResponsesTool) ([]protocol.Tool, error) {
 	out := make([]protocol.Tool, 0, len(tools))
 	for _, tool := range tools {
-		if tool.Type != "function" {
+		switch tool.Type {
+		case "function":
+			out = append(out, protocol.Tool{Name: tool.Name, Description: tool.Description, InputSchema: tool.Parameters})
+		case "namespace":
+			continue
+		default:
 			return nil, fmt.Errorf("unsupported Responses tool type %q", tool.Type)
 		}
-		out = append(out, protocol.Tool{Name: tool.Name, Description: tool.Description, InputSchema: tool.Parameters})
 	}
 	return out, nil
 }

@@ -163,3 +163,34 @@ func TestConfigStoreSaveAndReloadRollsBackOnFailure(t *testing.T) {
 		t.Fatalf("current = %s, want rolled back first-key config", string(current))
 	}
 }
+
+func TestConfigStoreSaveAndReloadReportsRollbackFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	backupDir := filepath.Join(dir, "backups")
+	store := ConfigStore{
+		Path:        path,
+		BackupDir:   backupDir,
+		BackupLimit: 20,
+		Now:         func() time.Time { return time.Date(2026, 6, 7, 10, 11, 12, 0, time.UTC) },
+	}
+
+	first := config.MinimalValidConfig("first-key")
+	if _, err := store.Save(first); err != nil {
+		t.Fatal(err)
+	}
+
+	second := config.MinimalValidConfig("second-key")
+	_, err := store.SaveAndReload(second, func() error {
+		if removeErr := os.RemoveAll(backupDir); removeErr != nil {
+			t.Fatal(removeErr)
+		}
+		return errors.New("reload failed mock error")
+	})
+	if err == nil || !strings.Contains(err.Error(), "rollback failed") {
+		t.Fatalf("SaveAndReload error = %v, want rollback failed", err)
+	}
+	if strings.Contains(err.Error(), "config rolled back") {
+		t.Fatalf("SaveAndReload error = %v, must not claim rollback succeeded", err)
+	}
+}

@@ -451,6 +451,19 @@ func TestMapAnthropicMessagesPreservesThinkingBlocks(t *testing.T) {
 	}
 }
 
+func TestMapAnthropicMessagesAcceptsStringContent(t *testing.T) {
+	messages := mapAnthropicMessages([]aproto.Message{{
+		Role:    "user",
+		Content: []byte(`"hello"`),
+	}})
+	if len(messages) != 1 || messages[0].Role != protocol.RoleUser || len(messages[0].Content) != 1 {
+		t.Fatalf("messages = %+v", messages)
+	}
+	if messages[0].Content[0].Type != "text" || messages[0].Content[0].Text != "hello" {
+		t.Fatalf("content block = %+v", messages[0].Content[0])
+	}
+}
+
 func TestMapNormalizedResponseEmitsThinkingBlocks(t *testing.T) {
 	got := mapNormalizedResponse(protocol.Response{
 		ID:   "msg_1",
@@ -1147,4 +1160,3 @@ func TestModelsIncludesRouteAndExposedAliases(t *testing.T) {
 		}
 	}
 }
-

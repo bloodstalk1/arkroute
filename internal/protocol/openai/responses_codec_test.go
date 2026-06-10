@@ -85,6 +85,33 @@ func TestNormalizeResponsesRequestMapsMessageItemsAndFunctionTools(t *testing.T)
 	}
 }
 
+func TestNormalizeResponsesRequestIgnoresNamespaceTools(t *testing.T) {
+	req, err := DecodeResponsesRequest([]byte(`{
+		"model": "sonnet",
+		"input": "hello",
+		"tools": [{
+			"type": "namespace",
+			"name": "shell"
+		}]
+	}`))
+	if err != nil {
+		t.Fatalf("DecodeResponsesRequest() error = %v", err)
+	}
+	normalized, requirements, err := NormalizeResponsesRequest(req)
+	if err != nil {
+		t.Fatalf("NormalizeResponsesRequest() error = %v", err)
+	}
+	if len(normalized.Tools) != 0 {
+		t.Fatalf("tools = %+v, want namespace tools ignored", normalized.Tools)
+	}
+	if requirements.Tools {
+		t.Fatal("requirements.Tools = true, want false for ignored namespace tools")
+	}
+	if len(normalized.Messages) != 1 || normalized.Messages[0].Content[0].Text != "hello" {
+		t.Fatalf("messages = %+v", normalized.Messages)
+	}
+}
+
 func TestNormalizeResponsesRequestRejectsHostedStateAndTools(t *testing.T) {
 	tests := []struct {
 		name string

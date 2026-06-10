@@ -116,13 +116,8 @@ func (s ConfigStore) SaveAndReload(cfg config.Config, onSave func() error) (Conf
 	}
 	if onSave != nil {
 		if err := onSave(); err != nil {
-			if hasPrevious && backupPath != "" {
-				backupData, readErr := os.ReadFile(backupPath)
-				if readErr == nil {
-					_ = atomicWriteFile(s.Path, backupData, 0o600)
-				}
-			} else {
-				_ = os.Remove(s.Path)
+			if rollbackErr := s.rollbackSave(hasPrevious, backupPath); rollbackErr != nil {
+				return ConfigSaveResult{}, fmt.Errorf("reload failed: %w; rollback failed: %v", err, rollbackErr)
 			}
 			return ConfigSaveResult{}, fmt.Errorf("reload failed: %w (config rolled back)", err)
 		}
@@ -131,6 +126,26 @@ func (s ConfigStore) SaveAndReload(cfg config.Config, onSave func() error) (Conf
 		return ConfigSaveResult{BackupPath: backupPath}, err
 	}
 	return ConfigSaveResult{BackupPath: backupPath}, nil
+}
+
+func (s ConfigStore) rollbackSave(hasPrevious bool, backupPath string) error {
+	if !hasPrevious {
+		if err := os.Remove(s.Path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove new config: %w", err)
+		}
+		return nil
+	}
+	if backupPath == "" {
+		return errors.New("missing backup for previous config")
+	}
+	backupData, err := os.ReadFile(backupPath)
+	if err != nil {
+		return fmt.Errorf("read backup: %w", err)
+	}
+	if err := atomicWriteFile(s.Path, backupData, 0o600); err != nil {
+		return fmt.Errorf("restore backup: %w", err)
+	}
+	return nil
 }
 
 func (s ConfigStore) PruneBackups() error {

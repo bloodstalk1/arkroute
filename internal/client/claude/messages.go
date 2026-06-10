@@ -224,15 +224,31 @@ func mapAnthropicOutputEffort(output *aproto.OutputConfig) string {
 func mapAnthropicMessages(messages []aproto.Message) []protocol.Message {
 	out := make([]protocol.Message, 0, len(messages))
 	for _, msg := range messages {
-		var blocks []aproto.ContentBlock
-		_ = json.Unmarshal(msg.Content, &blocks)
-		content := make([]protocol.ContentBlock, 0, len(blocks))
-		for _, block := range blocks {
-			content = append(content, protocol.ContentBlock{Type: block.Type, Text: block.Text, ID: block.ID, Name: block.Name, Input: block.Input, ToolUseID: block.ToolUseID, Content: block.Content, Thinking: block.Thinking, Signature: block.Signature})
-		}
-		out = append(out, protocol.Message{Role: protocol.Role(msg.Role), Content: content})
+		out = append(out, protocol.Message{Role: protocol.Role(msg.Role), Content: mapAnthropicContent(msg.Content)})
 	}
 	return out
+}
+
+func mapAnthropicContent(raw json.RawMessage) []protocol.ContentBlock {
+	if len(raw) == 0 {
+		return nil
+	}
+	if raw[0] == '"' {
+		var text string
+		if err := json.Unmarshal(raw, &text); err == nil {
+			return []protocol.ContentBlock{{Type: "text", Text: text}}
+		}
+		return nil
+	}
+	var blocks []aproto.ContentBlock
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return nil
+	}
+	content := make([]protocol.ContentBlock, 0, len(blocks))
+	for _, block := range blocks {
+		content = append(content, protocol.ContentBlock{Type: block.Type, Text: block.Text, ID: block.ID, Name: block.Name, Input: block.Input, ToolUseID: block.ToolUseID, Content: block.Content, Thinking: block.Thinking, Signature: block.Signature})
+	}
+	return content
 }
 
 func mapNormalizedResponse(resp protocol.Response, model string) map[string]any {
