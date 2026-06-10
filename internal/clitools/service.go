@@ -208,7 +208,6 @@ func ClaudeLaunchEnv(base []string, cfg config.Config) []string {
 	env = append(env,
 		"ANTHROPIC_BASE_URL="+BaseURL(cfg),
 		"ANTHROPIC_AUTH_TOKEN="+cfg.Server.ClientKey,
-		"ANTHROPIC_API_KEY="+cfg.Server.ClientKey,
 		"CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1",
 		"CLAUDE_CODE_AUTO_COMPACT_WINDOW=190000",
 	)

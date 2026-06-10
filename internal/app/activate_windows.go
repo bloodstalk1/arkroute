@@ -90,7 +90,6 @@ func PrintClaudeActivation(w io.Writer, cfg config.Config) {
 	baseURL := localGatewayBaseURL(cfg)
 	printEnvVar(w, shell, "ANTHROPIC_BASE_URL", baseURL)
 	printEnvVar(w, shell, "ANTHROPIC_AUTH_TOKEN", cfg.Server.ClientKey)
-	printEnvVar(w, shell, "ANTHROPIC_API_KEY", cfg.Server.ClientKey)
 	printEnvVar(w, shell, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1")
 	printEnvVar(w, shell, "CLAUDE_CODE_AUTO_COMPACT_WINDOW", claudeAutoCompactWindow)
 }

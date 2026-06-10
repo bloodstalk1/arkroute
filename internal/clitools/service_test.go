@@ -43,7 +43,6 @@ func TestClaudeLaunchEnvRemovesStaleAnthropicValues(t *testing.T) {
 		"\nOTHER=value\n",
 		"\nANTHROPIC_BASE_URL=http://127.0.0.1:20128\n",
 		"\nANTHROPIC_AUTH_TOKEN=local-key\n",
-		"\nANTHROPIC_API_KEY=local-key\n",
 		"\nCLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1\n",
 		"\nCLAUDE_CODE_AUTO_COMPACT_WINDOW=190000\n",
 	} {

@@ -42,7 +42,7 @@ func TestWriteClaudeSettingsPreservesExistingFieldsAndUpdatesArkRouteEnv(t *test
 	if env["ANTHROPIC_BASE_URL"] != "http://127.0.0.1:20134" {
 		t.Fatalf("ANTHROPIC_BASE_URL = %#v", env["ANTHROPIC_BASE_URL"])
 	}
-	if env["ANTHROPIC_AUTH_TOKEN"] != "local-key" || env["ANTHROPIC_API_KEY"] != "local-key" {
+	if env["ANTHROPIC_AUTH_TOKEN"] != "local-key" || env["ANTHROPIC_API_KEY"] != nil {
 		t.Fatalf("auth env not updated: %#v", env)
 	}
 	if env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] != "1" {

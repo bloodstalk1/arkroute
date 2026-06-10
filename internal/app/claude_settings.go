@@ -56,7 +56,7 @@ func WriteClaudeSettings(path string, cfg config.Config) error {
 	env := mapFromAny(settings["env"])
 	env[claudeEnvBaseURL] = claudeBaseURL(cfg)
 	env[claudeEnvAuthToken] = cfg.Server.ClientKey
-	env[claudeEnvAPIKey] = cfg.Server.ClientKey
+	delete(env, claudeEnvAPIKey)
 	env[claudeEnvModelDiscovery] = "1"
 	env[claudeEnvAutoCompact] = claudeAutoCompactWindow
 	settings["env"] = env
