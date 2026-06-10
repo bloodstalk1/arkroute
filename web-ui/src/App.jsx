@@ -83,8 +83,8 @@ function PageHeader({ icon, eyebrow, title, description, stats = [], action = nu
   return (
     <header className="page-header">
       <div className="title-stack">
-        <span className="eyebrow"><i className={`ph-fill ${icon}`}></i>{eyebrow}</span>
-        <h1>{title}</h1>
+        <span className="eyebrow"><i className={`ph-fill ${icon}`}></i>// {eyebrow.toUpperCase()}</span>
+        <h1>{title.toUpperCase()}</h1>
         <p className="muted">{description}</p>
       </div>
       <div className="header-actions">
@@ -107,8 +107,7 @@ function PageHeader({ icon, eyebrow, title, description, stats = [], action = nu
 function StatusBadge({ tone = "ok", children }) {
   return (
     <span className={`status-indicator ${tone}`}>
-      <span className="status-dot"></span>
-      {children}
+      [{String(children).toUpperCase()}]
     </span>
   );
 }
