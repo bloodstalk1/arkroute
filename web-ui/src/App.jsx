@@ -546,13 +546,13 @@ function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideCh
         </div>
       )}
 
-      <div className="policy-override-editor" style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid rgba(148, 163, 184, 0.15)" }}>
-        <h4 style={{ margin: "0 0 16px 0", color: "#f8fafc", fontSize: "14px" }}>
-          <i className="ph-bold ph-pencil-simple-line" style={{ marginRight: "8px" }}></i>
+      <div className="policy-override-editor">
+        <h4>
+          <i className="ph-bold ph-pencil-simple-line"></i>
           Compatibility Policy Override
         </h4>
 
-        <div className="field-grid" style={{ gap: "12px", marginBottom: "16px" }}>
+        <div className="field-grid policy-override-grid">
           <div className="field">
             <label htmlFor="override-auto-enable">auto_enable</label>
             <select
@@ -608,7 +608,7 @@ function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideCh
           </div>
         </div>
 
-        <div className="actions" style={{ gap: "10px", marginTop: "16px" }}>
+        <div className="actions policy-override-actions">
           <button
             id="save-policy-override"
             type="button"
@@ -633,7 +633,7 @@ function PolicyInspector({ inspection, loading, status, apiHeaders, onOverrideCh
         </div>
 
         {overrideStatus.text && (
-          <div className={`status-box ${overrideStatus.type}`} style={{ marginTop: "12px" }}>
+          <div className={`status-box ${overrideStatus.type} policy-override-status`}>
             {overrideStatus.text}
           </div>
         )}
@@ -667,13 +667,13 @@ function ProviderDetail({ provider, models, routes, onSelectModel, onSelectRoute
           <h3><i className="ph-light ph-hard-drive"></i>{provider.name || provider.id}</h3>
         </div>
       </div>
-      <div className="policy-summary-grid" style={{ display: 'grid', gap: '8px', margin: '12px 0' }}>
+      <div className="policy-summary-grid provider-detail-summary">
         <DataRow label="Provider ID">{provider.id}</DataRow>
         <DataRow label="Base URL">{provider.base_url}</DataRow>
         <DataRow label="Models">{providerModels.length}</DataRow>
       </div>
-      <div className="context-list" style={{ marginTop: '12px' }}>
-        <strong className="eyebrow" style={{ display: 'block', marginBottom: '8px' }}>Exposed Models</strong>
+      <div className="context-list provider-detail-context">
+        <strong className="eyebrow context-list-title">Exposed Models</strong>
         {providerModels.map((model) => (
           <button type="button" key={model.id} onClick={() => onSelectModel(model.id)}>
             <span>{model.exposed_alias || model.id}</span>
@@ -681,8 +681,8 @@ function ProviderDetail({ provider, models, routes, onSelectModel, onSelectRoute
           </button>
         ))}
       </div>
-      <div className="context-list" style={{ marginTop: '12px' }}>
-        <strong className="eyebrow" style={{ display: 'block', marginBottom: '8px' }}>Associated Routes</strong>
+      <div className="context-list provider-detail-context">
+        <strong className="eyebrow context-list-title">Associated Routes</strong>
         {routes.map((route) => (
           <button type="button" key={route.alias} onClick={() => onSelectRoute(route.alias)}>
             <span>{route.alias}</span>
@@ -1560,7 +1560,7 @@ function App() {
             ]}
           />
 
-          <div className="operator-grid">
+          <div className="operator-grid topology-grid">
             <section className="operator-card">
               <div className="card-heading">
                 <h3><i className="ph-light ph-cube"></i>Registered Models</h3>

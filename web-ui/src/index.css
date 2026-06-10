@@ -16,6 +16,9 @@
   --ok: #7ff45e;
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --border: var(--line);
+  --surface-soft: rgba(255, 255, 255, 0.018);
+  --shadow-panel: 0 20px 70px rgba(0, 0, 0, 0.32);
 }
 
 * {
@@ -1736,6 +1739,100 @@ select {
 
 .btn-danger.subtle {
   color: var(--muted);
+}
+
+.policy-override-editor {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.policy-override-editor h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.policy-override-grid {
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.policy-override-actions {
+  gap: 10px;
+  margin-top: 16px;
+  padding: 0;
+}
+
+.policy-override-status {
+  margin-top: 12px;
+}
+
+.provider-detail-summary {
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.provider-detail-context {
+  margin-top: 12px;
+}
+
+.context-list-title {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.topology-grid {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.topology-grid .policy-inspector-card,
+.topology-grid .cli-context-card {
+  grid-column: 1 / -1;
+}
+
+.route-presets-card {
+  border-color: rgba(105, 215, 255, 0.18);
+  background: rgba(105, 215, 255, 0.035);
+}
+
+.terminal-window {
+  border-color: rgba(244, 201, 93, 0.14);
+}
+
+.log-stream {
+  background:
+    linear-gradient(rgba(244, 201, 93, 0.018) 1px, transparent 1px),
+    #050606;
+  background-size: 100% 28px;
+}
+
+.log-line {
+  min-height: 34px;
+  align-items: center;
+}
+
+.log-line.selected .log-label {
+  color: var(--accent);
+}
+
+.cli-readiness {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cli-route-strip {
+  grid-column: 1 / -1;
+}
+
+.config-safety-card {
+  grid-column: span 2;
+}
+
+.config-import-textarea {
+  min-height: 140px;
 }
 
 
