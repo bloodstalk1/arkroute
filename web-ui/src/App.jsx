@@ -3,48 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const setupToken = new URLSearchParams(window.location.hash.slice(1)).get("setup_token") || "";
 const assetPath = (path) => `${import.meta.env.BASE_URL}${path}`;
 
-const PROVIDER_MODELS = {
-  anthropic: [
-    { value: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet (Latest / Recommended)" },
-    { value: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (Latest)" },
-    { value: "claude-3-opus-latest", label: "Claude 3 Opus (Latest)" },
-    { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (v2)" },
-    { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
-    { value: "claude-3-opus-20240229", label: "Claude 3 Opus" }
-  ],
-  gemini: [
-    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Recommended)" },
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
-    { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" }
-  ],
-  openrouter: [
-    { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet (via OR / Recommended)" },
-    { value: "anthropic/claude-3.5-sonnet:beta", label: "Claude 3.5 Sonnet Beta" },
-    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "deepseek/deepseek-chat", label: "DeepSeek V3" },
-    { value: "deepseek/deepseek-reasoner", label: "DeepSeek R1" },
-    { value: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B" }
-  ],
-  "openai-compatible": [
-    { value: "gpt-4o", label: "GPT-4o (Recommended)" },
-    { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-    { value: "o1-mini", label: "o1-mini" },
-    { value: "o3-mini", label: "o3-mini" },
-    { value: "deepseek-chat", label: "DeepSeek V3" },
-    { value: "deepseek-reasoner", label: "DeepSeek R1" }
-  ],
-  "opencode-go": [
-    { value: "qwen3.7-max", label: "Qwen 3.7 Max (Recommended)" },
-    { value: "deepseek-v3", label: "DeepSeek V3" },
-    { value: "deepseek-r1", label: "DeepSeek R1" }
-  ],
-  "opencode-zen": [
-    { value: "kimi-k2.6", label: "Kimi K2.6 (Recommended)" }
-  ]
-};
-
 const PROTOCOL_TYPES = [
   { value: "auto", label: "Auto-detect Protocol (Recommended)" },
   { value: "anthropic", label: "Anthropic Native Protocol" },
@@ -222,11 +180,14 @@ function ProviderSetupPanel({
   envNameOptions,
   upstreamModelOptions,
   exposedAliasOptions,
+  fetchingModels,
+  fetchModelsStatus,
   onPresetChange,
   onInputChange,
   onSaveSetup,
   onSetupLater,
-  onToggleAdvanced
+  onToggleAdvanced,
+  onFetchModels
 }) {
   return (
     <form className="operator-panel setup-panel provider-setup-panel" onSubmit={(event) => event.preventDefault()}>
@@ -332,9 +293,52 @@ function ProviderSetupPanel({
             )}
 
             <div className="field">
-              <label htmlFor="upstream-model">Upstream model</label>
-              <input id="upstream-model" type="text" list="upstream-model-options" value={form.upstream_model} onChange={(event) => onInputChange("upstream_model", event.target.value)} />
-              <datalist id="upstream-model-options">
+              <div className="field-label-row">
+                <label htmlFor="upstream-model">Upstream model</label>
+                <button
+                  type="button"
+                  className="btn-tertiary"
+                  onClick={onFetchModels}
+                  disabled={fetchingModels || !form.preset_id || !form.base_url}
+                  title="Fetch the live model list from the upstream provider using the configured API key"
+                  style={{ marginLeft: "auto", padding: "4px 10px", fontSize: "0.85em" }}
+                >
+                  {fetchingModels ? "Fetching…" : "↻ Fetch live"}
+                </button>
+              </div>
+              <select
+                id="upstream-model"
+                value={form.upstream_model && !upstreamModelOptions.some((option) => option.value === form.upstream_model) ? "__custom__" : (form.upstream_model || "")}
+                onChange={(event) => {
+                  if (event.target.value === "__custom__") {
+                    onInputChange("upstream_model", "");
+                  } else {
+                    onInputChange("upstream_model", event.target.value);
+                  }
+                }}
+              >
+                <option value="" disabled>— pick a model —</option>
+                {upstreamModelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+                <option value="__custom__">Other (type a custom model ID)</option>
+              </select>
+              {(form.upstream_model === "" || !upstreamModelOptions.some((option) => option.value === form.upstream_model)) && (
+                <input
+                  id="upstream-model-custom"
+                  type="text"
+                  placeholder="custom model id, e.g. anthropic/claude-3-5-sonnet-20241022"
+                  value={form.upstream_model}
+                  onChange={(event) => onInputChange("upstream_model", event.target.value)}
+                  style={{ marginTop: "6px" }}
+                />
+              )}
+              {fetchModelsStatus?.text && (
+                <small className={`status-inline status-${fetchModelsStatus.type}`} style={{ marginTop: "4px", opacity: 0.85 }}>
+                  {fetchModelsStatus.text}
+                </small>
+              )}
+              <datalist id="upstream-model-options" hidden>
                 {upstreamModelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </datalist>
             </div>
@@ -765,6 +769,11 @@ function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const logsEndRef = useRef(null);
 
+  const [catalogProviders, setCatalogProviders] = useState({});
+  const [fetchedModels, setFetchedModels] = useState({});
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchModelsStatus, setFetchModelsStatus] = useState({ text: "", type: "" });
+
   const [cliTools, setCliTools] = useState([]);
   const [cliToolsStatus, setCliToolsStatus] = useState({ text: "", type: "" });
   const [launchingTool, setLaunchingTool] = useState("");
@@ -920,11 +929,64 @@ function App() {
         }
       });
 
+    fetch("/internal/setup/catalog", { headers: apiHeaders })
+      .then((resp) => (resp.ok ? resp.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setCatalogProviders(data.providers || {});
+      })
+      .catch(() => {
+        // catalog fetch failure is non-fatal: dropdown falls back to "Other"
+      });
+
     loadStatus(isCancelled);
     return () => {
       cancelled = true;
     };
   }, [apiHeaders, fillPreset, loadStatus]);
+
+  const fetchLiveModels = useCallback(async () => {
+    if (!form.preset_id) {
+      setFetchModelsStatus({ text: "Select a provider first.", type: "error" });
+      return;
+    }
+    if (!form.base_url) {
+      setFetchModelsStatus({ text: "Set a base URL first.", type: "error" });
+      return;
+    }
+    setFetchingModels(true);
+    setFetchModelsStatus({ text: "Fetching live model list…", type: "info" });
+    try {
+      const resp = await fetch("/internal/setup/fetch-models", {
+        method: "POST",
+        headers: { ...apiHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preset_id: form.preset_id,
+          base_url: form.base_url,
+          api_key: form.api_key_mode === "config" ? form.api_key : "",
+          protocol: form.type === "auto" ? "" : form.type,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const reason = data.auth_error
+          ? "Upstream rejected the API key. Falling back to curated list."
+          : `Fetch failed (${resp.status}). Falling back to curated list.`;
+        setFetchModelsStatus({ text: reason, type: "error" });
+        return;
+      }
+      const liveModels = (data.fetched && data.fetched.models) || [];
+      setFetchedModels((prev) => ({ ...prev, [form.preset_id]: liveModels }));
+      setFetchModelsStatus({
+        text: `Loaded ${liveModels.length} live model${liveModels.length === 1 ? "" : "s"} from upstream.`,
+        type: "ok",
+      });
+    } catch (err) {
+      setFetchModelsStatus({ text: `Fetch error: ${err.message}`, type: "error" });
+    } finally {
+      setFetchingModels(false);
+    }
+  }, [apiHeaders, form.preset_id, form.base_url, form.api_key, form.api_key_mode, form.type]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1068,20 +1130,31 @@ function App() {
 
   const upstreamModelOptions = useMemo(() => {
     const list = [];
+    const seen = new Set();
+    const push = (value, label) => {
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      list.push({ value, label: label || value });
+    };
     const activePreset = presets.find((p) => p.id === form.preset_id);
     if (activePreset?.default_model) {
-      list.push({ value: activePreset.default_model, label: `${activePreset.default_model} (Preset Default)` });
+      push(activePreset.default_model, `${activePreset.default_model} (Preset Default)`);
     }
-    (PROVIDER_MODELS[form.preset_id] || []).forEach((model) => {
-      if (!list.some((item) => item.value === model.value)) list.push(model);
+    // Live-fetched models take priority (most up-to-date).
+    (fetchedModels[form.preset_id] || []).forEach((m) => push(m.id, m.label));
+    // Curated catalog from /internal/setup/catalog.
+    (catalogProviders[form.preset_id]?.models || []).forEach((m) => {
+      const label = m.default ? `${m.id} (Recommended)` : m.id;
+      push(m.id, label);
     });
+    // Final fallback: curated catalog across all known providers.
     if (list.length === 0) {
-      Object.values(PROVIDER_MODELS).flat().forEach((model) => {
-        if (!list.some((item) => item.value === model.value)) list.push(model);
+      Object.values(catalogProviders).forEach((provider) => {
+        (provider.models || []).forEach((m) => push(m.id, m.label));
       });
     }
     return list;
-  }, [form.preset_id, presets]);
+  }, [form.preset_id, presets, catalogProviders, fetchedModels]);
 
   const exposedAliasOptions = useMemo(() => {
     const list = new Set();
@@ -1396,11 +1469,14 @@ function App() {
               showAdvanced={showAdvanced}
               status={status}
               upstreamModelOptions={upstreamModelOptions}
+              fetchingModels={fetchingModels}
+              fetchModelsStatus={fetchModelsStatus}
               onInputChange={handleInputChange}
               onPresetChange={handlePresetChange}
               onSaveSetup={handleSaveSetup}
               onSetupLater={handleSetupLater}
               onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+              onFetchModels={fetchLiveModels}
             />
           </div>
 

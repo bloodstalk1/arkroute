@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "anthropic": {
+      "name": "Anthropic",
+      "default_base_url": "https://api.anthropic.com",
+      "default_env": "ANTHROPIC_API_KEY",
+      "default_model": "claude-sonnet-4-5",
+      "protocol": "anthropic",
+      "models": [
+        { "id": "claude-opus-4-1", "label": "Claude Opus 4.1", "context": 200000, "max_output": 32000 },
+        { "id": "claude-sonnet-4-5", "label": "Claude Sonnet 4.5 (Recommended)", "context": 200000, "max_output": 64000, "default": true },
+        { "id": "claude-sonnet-4-5-20250929", "label": "Claude Sonnet 4.5 (v2)", "context": 200000, "max_output": 64000 },
+        { "id": "claude-haiku-4-5", "label": "Claude Haiku 4.5", "context": 200000, "max_output": 64000 },
+        { "id": "claude-opus-4-20250514", "label": "Claude Opus 4", "context": 200000, "max_output": 32000 },
+        { "id": "claude-sonnet-4-20250514", "label": "Claude Sonnet 4", "context": 200000, "max_output": 64000 },
+        { "id": "claude-3-7-sonnet-20250219", "label": "Claude 3.7 Sonnet", "context": 200000, "max_output": 64000 },
+        { "id": "claude-3-5-sonnet-20241022", "label": "Claude 3.5 Sonnet", "context": 200000, "max_output": 8192 },
+        { "id": "claude-3-5-haiku-20241022", "label": "Claude 3.5 Haiku", "context": 200000, "max_output": 8192 }
+      ]
+    },
+    "gemini": {
+      "name": "Google Gemini",
+      "default_base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "default_env": "GEMINI_API_KEY",
+      "default_model": "gemini-2.5-pro",
+      "protocol": "gemini",
+      "models": [
+        { "id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro (Recommended)", "context": 2000000, "max_output": 65536, "default": true },
+        { "id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash", "context": 1000000, "max_output": 65536 },
+        { "id": "gemini-2.0-flash", "label": "Gemini 2.0 Flash", "context": 1000000, "max_output": 8192 },
+        { "id": "gemini-1.5-pro", "label": "Gemini 1.5 Pro", "context": 2000000, "max_output": 8192 },
+        { "id": "gemini-1.5-flash", "label": "Gemini 1.5 Flash", "context": 1000000, "max_output": 8192 }
+      ]
+    },
+    "openai": {
+      "name": "OpenAI",
+      "default_base_url": "https://api.openai.com/v1",
+      "default_env": "OPENAI_API_KEY",
+      "default_model": "gpt-4o",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "gpt-5", "label": "GPT-5", "context": 400000, "max_output": 128000, "default": true },
+        { "id": "gpt-5-mini", "label": "GPT-5 mini", "context": 400000, "max_output": 128000 },
+        { "id": "gpt-4.1", "label": "GPT-4.1", "context": 1047576, "max_output": 32768 },
+        { "id": "gpt-4.1-mini", "label": "GPT-4.1 mini", "context": 1047576, "max_output": 32768 },
+        { "id": "gpt-4o", "label": "GPT-4o (Recommended)", "context": 128000, "max_output": 16384 },
+        { "id": "gpt-4o-mini", "label": "GPT-4o mini", "context": 128000, "max_output": 16384 },
+        { "id": "o1", "label": "o1 (Reasoning)", "context": 200000, "max_output": 100000 },
+        { "id": "o1-mini", "label": "o1-mini (Reasoning)", "context": 128000, "max_output": 65536 },
+        { "id": "o3-mini", "label": "o3-mini (Reasoning)", "context": 200000, "max_output": 100000 },
+        { "id": "gpt-3.5-turbo", "label": "GPT-3.5 Turbo", "context": 16385, "max_output": 4096 }
+      ]
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "default_base_url": "https://openrouter.ai/api/v1",
+      "default_env": "OPENROUTER_API_KEY",
+      "default_model": "anthropic/claude-sonnet-4.5",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "anthropic/claude-sonnet-4.5", "label": "Claude Sonnet 4.5 (via OR / Recommended)", "context": 200000, "max_output": 64000, "default": true },
+        { "id": "anthropic/claude-3.5-sonnet", "label": "Claude 3.5 Sonnet", "context": 200000, "max_output": 8192 },
+        { "id": "anthropic/claude-3.5-haiku", "label": "Claude 3.5 Haiku", "context": 200000, "max_output": 8192 },
+        { "id": "openai/gpt-4o", "label": "GPT-4o (via OR)", "context": 128000, "max_output": 16384 },
+        { "id": "openai/o1-mini", "label": "o1-mini (via OR)", "context": 128000, "max_output": 65536 },
+        { "id": "google/gemini-2.5-pro", "label": "Gemini 2.5 Pro", "context": 2000000, "max_output": 65536 },
+        { "id": "google/gemini-2.5-flash", "label": "Gemini 2.5 Flash", "context": 1000000, "max_output": 65536 },
+        { "id": "meta-llama/llama-3.3-70b-instruct", "label": "Llama 3.3 70B", "context": 131072, "max_output": 8192 },
+        { "id": "meta-llama/llama-3.1-405b-instruct", "label": "Llama 3.1 405B", "context": 131072, "max_output": 8192 },
+        { "id": "deepseek/deepseek-chat", "label": "DeepSeek V3", "context": 64000, "max_output": 8000 },
+        { "id": "deepseek/deepseek-reasoner", "label": "DeepSeek R1", "context": 64000, "max_output": 8000 },
+        { "id": "qwen/qwen-2.5-72b-instruct", "label": "Qwen 2.5 72B", "context": 32768, "max_output": 8192 },
+        { "id": "mistralai/mistral-large-latest", "label": "Mistral Large", "context": 128000, "max_output": 8192 }
+      ]
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "default_base_url": "https://api.deepseek.com/v1",
+      "default_env": "DEEPSEEK_API_KEY",
+      "default_model": "deepseek-chat",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "deepseek-chat", "label": "DeepSeek V3 (Recommended)", "context": 64000, "max_output": 8000, "default": true },
+        { "id": "deepseek-reasoner", "label": "DeepSeek R1 (Reasoning)", "context": 64000, "max_output": 8000 }
+      ]
+    },
+    "groq": {
+      "name": "Groq",
+      "default_base_url": "https://api.groq.com/openai/v1",
+      "default_env": "GROQ_API_KEY",
+      "default_model": "llama-3.3-70b-versatile",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "llama-3.3-70b-versatile", "label": "Llama 3.3 70B (Recommended)", "context": 128000, "max_output": 32768, "default": true },
+        { "id": "llama-3.1-8b-instant", "label": "Llama 3.1 8B (Fast)", "context": 128000, "max_output": 8192 },
+        { "id": "mixtral-8x7b-32768", "label": "Mixtral 8x7B", "context": 32768, "max_output": 4096 }
+      ]
+    },
+    "mistral": {
+      "name": "Mistral AI",
+      "default_base_url": "https://api.mistral.ai/v1",
+      "default_env": "MISTRAL_API_KEY",
+      "default_model": "mistral-large-latest",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "mistral-large-latest", "label": "Mistral Large (Recommended)", "context": 128000, "max_output": 8192, "default": true },
+        { "id": "mistral-medium-latest", "label": "Mistral Medium", "context": 128000, "max_output": 8192 },
+        { "id": "mistral-small-latest", "label": "Mistral Small (Fast)", "context": 128000, "max_output": 8192 },
+        { "id": "codestral-latest", "label": "Codestral (Code)", "context": 256000, "max_output": 8192 }
+      ]
+    },
+    "together": {
+      "name": "Together AI",
+      "default_base_url": "https://api.together.xyz/v1",
+      "default_env": "TOGETHER_API_KEY",
+      "default_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "label": "Llama 3.3 70B (Recommended)", "context": 131072, "max_output": 8192, "default": true },
+        { "id": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", "label": "Llama 3.1 405B", "context": 130815, "max_output": 8192 },
+        { "id": "Qwen/Qwen2.5-72B-Instruct-Turbo", "label": "Qwen 2.5 72B", "context": 32768, "max_output": 8192 },
+        { "id": "deepseek-ai/DeepSeek-R1", "label": "DeepSeek R1", "context": 164000, "max_output": 164000 }
+      ]
+    },
+    "fireworks": {
+      "name": "Fireworks AI",
+      "default_base_url": "https://api.fireworks.ai/inference/v1",
+      "default_env": "FIREWORKS_API_KEY",
+      "default_model": "accounts/fireworks/models/llama-v3p3-70b-instruct",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "accounts/fireworks/models/llama-v3p3-70b-instruct", "label": "Llama 3.3 70B (Recommended)", "context": 131072, "max_output": 8192, "default": true },
+        { "id": "accounts/fireworks/models/llama-v3p1-405b-instruct", "label": "Llama 3.1 405B", "context": 131072, "max_output": 8192 },
+        { "id": "accounts/fireworks/models/deepseek-r1", "label": "DeepSeek R1", "context": 164000, "max_output": 164000 }
+      ]
+    },
+    "cohere": {
+      "name": "Cohere",
+      "default_base_url": "https://api.cohere.ai/compatibility/v1",
+      "default_env": "COHERE_API_KEY",
+      "default_model": "command-r-plus",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "command-r-plus", "label": "Command R+ (Recommended)", "context": 128000, "max_output": 4000, "default": true },
+        { "id": "command-r", "label": "Command R", "context": 128000, "max_output": 4000 },
+        { "id": "command", "label": "Command", "context": 4096, "max_output": 4000 }
+      ]
+    },
+    "xai": {
+      "name": "xAI (Grok)",
+      "default_base_url": "https://api.x.ai/v1",
+      "default_env": "XAI_API_KEY",
+      "default_model": "grok-2",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "grok-2", "label": "Grok 2 (Recommended)", "context": 131072, "max_output": 8192, "default": true },
+        { "id": "grok-2-mini", "label": "Grok 2 mini (Fast)", "context": 131072, "max_output": 8192 },
+        { "id": "grok-beta", "label": "Grok Beta", "context": 131072, "max_output": 8192 }
+      ]
+    },
+    "nvidia": {
+      "name": "NVIDIA NIM",
+      "default_base_url": "https://integrate.api.nvidia.com/v1",
+      "default_env": "NVIDIA_API_KEY",
+      "default_model": "meta/llama-3.3-70b-instruct",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "meta/llama-3.3-70b-instruct", "label": "Llama 3.3 70B (Recommended)", "context": 131072, "max_output": 8192, "default": true },
+        { "id": "meta/llama-3.1-405b-instruct", "label": "Llama 3.1 405B", "context": 131072, "max_output": 8192 },
+        { "id": "nvidia/llama-3.1-nemotron-70b-instruct", "label": "Nemotron 70B", "context": 65536, "max_output": 8192 }
+      ]
+    },
+    "cerebras": {
+      "name": "Cerebras",
+      "default_base_url": "https://api.cerebras.ai/v1",
+      "default_env": "CEREBRAS_API_KEY",
+      "default_model": "llama-3.3-70b",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "llama-3.3-70b", "label": "Llama 3.3 70B (Recommended)", "context": 128000, "max_output": 8192, "default": true },
+        { "id": "llama-3.1-8b", "label": "Llama 3.1 8B (Fast)", "context": 128000, "max_output": 8192 }
+      ]
+    },
+    "opencode-zen": {
+      "name": "OpenCode Zen",
+      "default_base_url": "https://opencode.ai/zen/v1",
+      "default_env": "OPENCODE_API_KEY",
+      "default_model": "kimi-k2.6",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "kimi-k2.6", "label": "Kimi K2.6 (Recommended)", "default": true },
+        { "id": "qwen3-coder-plus", "label": "Qwen3 Coder Plus" },
+        { "id": "deepseek-r1", "label": "DeepSeek R1" }
+      ]
+    },
+    "opencode-go": {
+      "name": "OpenCode Go",
+      "default_base_url": "https://opencode.ai/zen/go",
+      "default_env": "OPENCODE_API_KEY",
+      "default_model": "qwen3.7-max",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "qwen3.7-max", "label": "Qwen 3.7 Max (Recommended)", "default": true },
+        { "id": "qwen3-coder-plus", "label": "Qwen3 Coder Plus" },
+        { "id": "deepseek-v3", "label": "DeepSeek V3" },
+        { "id": "deepseek-r1", "label": "DeepSeek R1" },
+        { "id": "kimi-k2.5", "label": "Kimi K2.5" }
+      ]
+    },
+    "ollama": {
+      "name": "Ollama (Local)",
+      "default_base_url": "http://127.0.0.1:11434/v1",
+      "default_env": "",
+      "default_model": "llama3.2",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "llama3.2", "label": "Llama 3.2 (3B)", "default": true },
+        { "id": "llama3.2:70b", "label": "Llama 3.2 70B" },
+        { "id": "qwen2.5", "label": "Qwen 2.5" },
+        { "id": "deepseek-r1", "label": "DeepSeek R1" },
+        { "id": "codellama", "label": "Code Llama" }
+      ]
+    },
+    "lm-studio": {
+      "name": "LM Studio (Local)",
+      "default_base_url": "http://127.0.0.1:1234/v1",
+      "default_env": "",
+      "default_model": "loaded-model",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "loaded-model", "label": "Use model name from LM Studio UI", "default": true }
+      ]
+    },
+    "vllm": {
+      "name": "vLLM (Local)",
+      "default_base_url": "http://127.0.0.1:8000/v1",
+      "default_env": "",
+      "default_model": "served-model",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "served-model", "label": "Use model name from vLLM --served-model-name", "default": true }
+      ]
+    },
+    "qwen": {
+      "name": "Qwen (Alibaba DashScope)",
+      "default_base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "default_env": "DASHSCOPE_API_KEY",
+      "default_model": "qwen-plus",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "qwen-plus", "label": "Qwen Plus (Recommended)", "context": 131072, "max_output": 8192, "default": true },
+        { "id": "qwen-turbo", "label": "Qwen Turbo (Fast)", "context": 131072, "max_output": 8192 },
+        { "id": "qwen-max", "label": "Qwen Max (Best)", "context": 32768, "max_output": 8192 },
+        { "id": "qwen3-coder-plus", "label": "Qwen3 Coder Plus", "context": 262144, "max_output": 65536 }
+      ]
+    },
+    "kimi": {
+      "name": "Kimi (Moonshot)",
+      "default_base_url": "https://api.moonshot.ai/v1",
+      "default_env": "MOONSHOT_API_KEY",
+      "default_model": "moonshot-v1-128k",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "moonshot-v1-128k", "label": "Moonshot v1 128K (Recommended)", "context": 131072, "max_output": 8192, "default": true },
+        { "id": "moonshot-v1-32k", "label": "Moonshot v1 32K", "context": 32768, "max_output": 8192 },
+        { "id": "moonshot-v1-8k", "label": "Moonshot v1 8K", "context": 8192, "max_output": 8192 }
+      ]
+    },
+    "glm": {
+      "name": "GLM (Zhipu)",
+      "default_base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "default_env": "ZHIPU_API_KEY",
+      "default_model": "glm-4.6",
+      "protocol": "openai_compatible",
+      "models": [
+        { "id": "glm-4.6", "label": "GLM-4.6 (Recommended)", "context": 200000, "max_output": 8192, "default": true },
+        { "id": "glm-4.5", "label": "GLM-4.5", "context": 128000, "max_output": 8192 },
+        { "id": "glm-4-plus", "label": "GLM-4 Plus", "context": 128000, "max_output": 4096 }
+      ]
+    }
+  }
+}
