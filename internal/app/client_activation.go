@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/security"
 )
 
 const (
@@ -53,7 +54,7 @@ func validateActivationConfig(cfg config.Config) error {
 	if cfg.Server.Port <= 0 || cfg.Server.Port > 65535 {
 		return fmt.Errorf("server.port must be between 1 and 65535")
 	}
-	if !isLoopbackHost(cfg.Server.Host) {
+	if !security.IsLoopbackHost(cfg.Server.Host) {
 		return fmt.Errorf("server.host must be loopback for activation")
 	}
 	return nil

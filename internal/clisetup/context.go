@@ -119,7 +119,7 @@ func claudeProfile(baseURL string, alias string) Profile {
 func openAIProfile(id string, name string, baseURL string, alias string) Profile {
 	command := fmt.Sprintf("eval \"$(arkroute activate %s)\"\nexport OPENAI_MODEL=%s", id, shellQuote(alias))
 	if runtime.GOOS == "windows" {
-		command = fmt.Sprintf("arkroute activate %s | Invoke-Expression\nset OPENAI_MODEL=%s", id, alias)
+		command = fmt.Sprintf("arkroute activate %s | Invoke-Expression\nset OPENAI_MODEL=%s", id, shellQuote(alias))
 	}
 	return Profile{
 		ID: id, Name: name, Protocol: "openai_compatible",
@@ -131,7 +131,7 @@ func openAIProfile(id string, name string, baseURL string, alias string) Profile
 func droidProfile(baseURL string, alias string) Profile {
 	command := fmt.Sprintf("eval \"$(arkroute activate droid)\"\nexport ARKROUTE_OPENAI_MODEL=%s\n# droidrun run --provider OpenAILike --model \"$ARKROUTE_OPENAI_MODEL\" --api_base \"$ARKROUTE_OPENAI_BASE_URL\" \"Open the settings app\"", shellQuote(alias))
 	if runtime.GOOS == "windows" {
-		command = fmt.Sprintf("arkroute activate droid | Invoke-Expression\nset ARKROUTE_OPENAI_MODEL=%s\nREM droidrun run --provider OpenAILike --model \"%%ARKROUTE_OPENAI_MODEL%%\" --api_base \"%%ARKROUTE_OPENAI_BASE_URL%%\" \"Open the settings app\"", alias)
+		command = fmt.Sprintf("arkroute activate droid | Invoke-Expression\nset ARKROUTE_OPENAI_MODEL=%s\nREM droidrun run --provider OpenAILike --model \"%%ARKROUTE_OPENAI_MODEL%%\" --api_base \"%%ARKROUTE_OPENAI_BASE_URL%%\" \"Open the settings app\"", shellQuote(alias))
 	}
 	return Profile{
 		ID: "droid", Name: "Droid / OpenAI-like", Protocol: "openai_compatible",

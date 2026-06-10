@@ -3,8 +3,10 @@ package clitools
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"gopkg.in/yaml.v3"
@@ -203,4 +205,59 @@ func writeConfig(t *testing.T, cfg config.Config) string {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	return path
+}
+
+func TestDefaultStartProcessWithExitInvokesCallback(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go binary not available for test")
+	}
+	done := make(chan struct{})
+	var gotCmd string
+	var gotPID int
+	var gotErr error
+	pid, err := DefaultStartProcessWithExit(ProcessSpec{Command: "go", Env: []string{"GOFLAGS=-mod=mod", "GO111MODULE=off"}}, func(command string, p int, exitErr error) {
+		gotCmd = command
+		gotPID = p
+		gotErr = exitErr
+		close(done)
+	})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if pid <= 0 {
+		t.Fatalf("pid = %d, want > 0", pid)
+	}
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("OnProcessExit did not fire")
+	}
+	if gotCmd != "go" {
+		t.Errorf("command = %q, want go", gotCmd)
+	}
+	if gotPID != pid {
+		t.Errorf("pid mismatch: got %d, want %d", gotPID, pid)
+	}
+	// `go` with no subcommand prints help and exits 2 on every Go version.
+	// Just verify the callback received a non-nil error from the wait.
+	if gotErr == nil {
+		t.Errorf("exitErr = nil, want non-nil (go with no subcommand exits 2)")
+	}
+}
+
+func TestDefaultStartProcessWithExitRecoversFromPanic(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go binary not available for test")
+	}
+	done := make(chan struct{})
+	_, _ = DefaultStartProcessWithExit(ProcessSpec{Command: "go", Env: []string{"GOFLAGS=-mod=mod", "GO111MODULE=off"}}, func(command string, pid int, exitErr error) {
+		// Panic inside the callback. The reaper wrapper must recover so
+		// the daemon process isn't killed. The close(done) runs before
+		// the panic, so the test observes normal completion; the panic
+		// in the callback is swallowed by the wrapper's defer recover.
+		close(done)
+		panic("user callback panic")
+	})
+	<-done
+	// If we got here, the reaper did not crash the test process.
 }

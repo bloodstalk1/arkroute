@@ -1,6 +1,7 @@
 package clisetup
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -44,8 +45,12 @@ func TestContextForRouteUsesRouteAlias(t *testing.T) {
 	if !ok {
 		t.Fatal("opencode profile missing")
 	}
-	if !strings.Contains(openCode.Command, "OPENAI_MODEL='sonnet'") {
-		t.Fatalf("command = %q, want selected route alias", openCode.Command)
+	wantSubstr := "export OPENAI_MODEL='sonnet'"
+	if runtime.GOOS == "windows" {
+		wantSubstr = `set OPENAI_MODEL="sonnet"`
+	}
+	if !strings.Contains(openCode.Command, wantSubstr) {
+		t.Fatalf("command = %q, want substring %q", openCode.Command, wantSubstr)
 	}
 }
 

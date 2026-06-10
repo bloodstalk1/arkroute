@@ -2,7 +2,6 @@ package clitools
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/security"
 )
 
 const schemaVersion = 1
@@ -54,6 +54,7 @@ type Service struct {
 	StartProcess             func(ProcessSpec) (int, error)
 	Environ                  func() []string
 	ActivationCommandBuilder func(config.Config) string
+	OnProcessExit            func(command string, pid int, exitErr error)
 }
 
 type Error struct {
@@ -149,18 +150,20 @@ func (s *Service) gatewayReachable() func(config.Config) bool {
 	return DefaultGatewayReachable
 }
 
-func (s *Service) hasInteractiveTerminal() func() bool {
+func (s *Service) hasInteractiveTerminal() bool {
 	if s.HasInteractiveTerminal != nil {
-		return s.HasInteractiveTerminal
+		return s.HasInteractiveTerminal()
 	}
-	return DefaultHasInteractiveTerminal
+	return DefaultHasInteractiveTerminal()
 }
 
 func (s *Service) startProcess() func(ProcessSpec) (int, error) {
 	if s.StartProcess != nil {
 		return s.StartProcess
 	}
-	return DefaultStartProcess
+	return func(spec ProcessSpec) (int, error) {
+		return DefaultStartProcessWithExit(spec, s.OnProcessExit)
+	}
 }
 
 func (s *Service) environ() []string {
@@ -187,7 +190,7 @@ func (s *Service) launchSupport(installed bool, gatewayReachable bool) (bool, st
 	if !s.GatewayHosted {
 		return false, "panel is not hosted by the running gateway"
 	}
-	if !s.hasInteractiveTerminal()() {
+	if !s.hasInteractiveTerminal() {
 		return false, "interactive terminal unavailable"
 	}
 	return true, ""
@@ -248,6 +251,10 @@ func DefaultHasInteractiveTerminal() bool {
 }
 
 func DefaultStartProcess(spec ProcessSpec) (int, error) {
+	return DefaultStartProcessWithExit(spec, nil)
+}
+
+func DefaultStartProcessWithExit(spec ProcessSpec, onExit func(command string, pid int, exitErr error)) (int, error) {
 	cmd := exec.Command(spec.Command)
 	cmd.Env = spec.Env
 	cmd.Stdin = os.Stdin
@@ -256,10 +263,29 @@ func DefaultStartProcess(spec ProcessSpec) (int, error) {
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}
+	pid := cmd.Process.Pid
 	go func() {
-		_ = cmd.Wait()
+		waitErr := cmd.Wait()
+		if onExit == nil {
+			return
+		}
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Fprintf(os.Stderr, "arkroute: OnProcessExit panic for %s (pid %d): %v\n", spec.Command, pid, r)
+				}
+			}()
+			onExit(spec.Command, pid, waitErr)
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			fmt.Fprintf(os.Stderr, "arkroute: OnProcessExit for %s (pid %d) exceeded 5s budget\n", spec.Command, pid)
+		}
 	}()
-	return cmd.Process.Pid, nil
+	return pid, nil
 }
 
 func validateConfig(cfg config.Config) error {
@@ -276,12 +302,7 @@ func validateConfig(cfg config.Config) error {
 }
 
 func isLoopbackHost(host string) bool {
-	host = strings.TrimSpace(strings.ToLower(host))
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	return security.IsLoopbackHost(host)
 }
 
 func defaultConfigPath() string {
