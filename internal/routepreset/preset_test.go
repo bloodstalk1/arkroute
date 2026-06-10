@@ -111,3 +111,24 @@ func TestApplyPresetCanAppendFallbackTarget(t *testing.T) {
 		t.Fatalf("strategy = %q, want fallback", out.Routes[0].Strategy)
 	}
 }
+
+func TestNextDiscoveryAliasTakesCandidate(t *testing.T) {
+	if got := nextDiscoveryAlias("claude-x", nil); got != "claude-x" {
+		t.Errorf("nil existing: got %q, want claude-x", got)
+	}
+	if got := nextDiscoveryAlias("claude-x", []config.ModelConfig{{ClaudeDiscoveryAlias: "claude-y"}}); got != "claude-x" {
+		t.Errorf("non-conflicting existing: got %q, want claude-x", got)
+	}
+	if got := nextDiscoveryAlias("claude-x", []config.ModelConfig{{ClaudeDiscoveryAlias: "claude-x"}}); got != "" {
+		t.Errorf("conflicting existing: got %q, want empty", got)
+	}
+}
+
+func TestAppendModelEntryUsesExplicitDiscovery(t *testing.T) {
+	cfg := config.MinimalValidConfig("k")
+	in := applyInputs{providerID: "p", providerName: "P", modelAlias: "m", modelID: "p-m"}
+	out := appendModelEntry(cfg, Preset{UpstreamModel: "u", Capabilities: config.Capabilities{}}, in, "claude-explicit")
+	if got := out.Models[len(out.Models)-1].ClaudeDiscoveryAlias; got != "claude-explicit" {
+		t.Errorf("discovery = %q, want claude-explicit", got)
+	}
+}

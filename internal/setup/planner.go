@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
@@ -86,21 +87,7 @@ func firstNonEmpty(values ...string) string {
 }
 
 func normalizeID(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	var b strings.Builder
-	lastDash := false
-	for _, r := range value {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			lastDash = false
-			continue
-		}
-		if !lastDash && b.Len() > 0 {
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	return strings.Trim(b.String(), "-")
+	return compatpolicy.Slug(value, "")
 }
 
 func cloneStringMap(in map[string]string) map[string]string {

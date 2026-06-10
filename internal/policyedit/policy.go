@@ -114,13 +114,7 @@ func findModel(cfg config.Config, modelID string) (config.ModelConfig, error) {
 }
 
 func removePolicyByID(policies []config.CompatibilityPolicyConfig, policyID string) []config.CompatibilityPolicyConfig {
-	next := make([]config.CompatibilityPolicyConfig, 0, len(policies))
-	for _, policy := range policies {
-		if policy.ID != policyID {
-			next = append(next, policy)
-		}
-	}
-	return next
+	return compatpolicy.RemoveByID(policies, policyID)
 }
 
 func cloneBool(value *bool) *bool {

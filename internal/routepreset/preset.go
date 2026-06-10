@@ -45,8 +45,6 @@ type ApplySummary struct {
 	ModelID             string `json:"model_id"`
 	RouteAlias          string `json:"route_alias"`
 	ProfileName         string `json:"profile_name,omitempty"`
-	AddedProvider       bool   `json:"added_provider"`
-	AddedModel          bool   `json:"added_model"`
 	AppendedRouteTarget bool   `json:"appended_route_target"`
 }
 
@@ -71,72 +69,120 @@ func Apply(cfg config.Config, req ApplyRequest) (config.Config, ApplySummary, er
 	if !ok {
 		return config.Config{}, ApplySummary{}, fmt.Errorf("unknown route preset %q", req.PresetID)
 	}
+	inputs := resolveInputs(req, preset)
+	if err := checkConflicts(cfg, inputs.providerID, inputs.modelID, req.ConfirmOverwrite); err != nil {
+		return config.Config{}, ApplySummary{}, err
+	}
+	cfg = removeExisting(cfg, inputs.providerID, inputs.modelID, req.ConfirmOverwrite)
+	discovery := nextDiscoveryAlias(defaultDiscoveryAlias, cfg.Models)
+	cfg = appendProvider(cfg, req, preset, inputs)
+	cfg = appendReasoningPolicy(cfg, preset, inputs)
+	cfg = appendModelEntry(cfg, preset, inputs, discovery)
+	cfg = upsertRouteAndProfile(cfg, req, inputs)
+	if err := cfg.Validate(); err != nil {
+		return config.Config{}, ApplySummary{}, err
+	}
+	return cfg, summaryFromInputs(inputs, preset, req), nil
+}
+
+const defaultDiscoveryAlias = "claude-sonnet-4-20250514"
+
+type applyInputs struct {
+	providerID   string
+	providerName string
+	routeAlias   string
+	modelAlias   string
+	modelID      string
+}
+
+func resolveInputs(req ApplyRequest, preset Preset) applyInputs {
 	providerID := firstNonEmpty(req.ProviderID, preset.DefaultProviderID, preset.ID)
 	providerName := firstNonEmpty(req.ProviderName, preset.Name)
 	routeAlias := firstNonEmpty(req.RouteAlias, preset.DefaultRoute)
 	modelAlias := preset.DefaultAlias
 	modelID := normalizeID(providerID + "-" + modelAlias)
-	if err := checkConflicts(cfg, providerID, modelID, req.ConfirmOverwrite); err != nil {
-		return config.Config{}, ApplySummary{}, err
+	return applyInputs{
+		providerID:   providerID,
+		providerName: providerName,
+		routeAlias:   routeAlias,
+		modelAlias:   modelAlias,
+		modelID:      modelID,
 	}
-	cfg = removeExisting(cfg, providerID, modelID, req.ConfirmOverwrite)
+}
+
+func appendProvider(cfg config.Config, req ApplyRequest, preset Preset, in applyInputs) config.Config {
 	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
-		ID: providerID, Name: providerName, Type: preset.ProviderType, BaseURL: preset.BaseURL,
-		APIKey: providerAPIKey(req, preset, providerID), Enabled: true,
+		ID: in.providerID, Name: in.providerName, Type: preset.ProviderType, BaseURL: preset.BaseURL,
+		APIKey: providerAPIKey(req, preset, in.providerID), Enabled: true,
 	})
-	discoveryAlias := "claude-sonnet-4-20250514"
-	for _, m := range cfg.Models {
-		if m.ClaudeDiscoveryAlias == discoveryAlias {
-			discoveryAlias = ""
-			break
+	return cfg
+}
+
+func nextDiscoveryAlias(candidate string, existing []config.ModelConfig) string {
+	for _, m := range existing {
+		if m.ClaudeDiscoveryAlias == candidate {
+			return ""
 		}
 	}
-	var autoEnable *bool
+	return candidate
+}
+
+func appendReasoningPolicy(cfg config.Config, preset Preset, in applyInputs) config.Config {
+	var autoEnable, replay *bool
 	if preset.AutoThinking {
-		val := true
-		autoEnable = &val
+		autoEnable = boolPtr(true)
 	}
-	var replay *bool
 	if preset.ReasoningReplay {
-		val := true
-		replay = &val
+		replay = boolPtr(true)
 	}
-	if autoEnable != nil || replay != nil {
-		policyID := compatpolicy.StableModelPolicyID(modelID)
-		cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, policyID)
-		cfg.CompatibilityPolicies = append(cfg.CompatibilityPolicies, config.CompatibilityPolicyConfig{
-			ID: policyID,
-			Match: config.CompatibilityMatchConfig{
-				ProviderIDs:    []string{providerID},
-				UpstreamModels: []string{preset.UpstreamModel},
-			},
-			Reasoning: config.CompatibilityReasoningConfig{
-				AutoEnable: autoEnable,
-				Replay:     replay,
-			},
-		})
+	if autoEnable == nil && replay == nil {
+		return cfg
 	}
+	policyID := compatpolicy.StableModelPolicyID(in.modelID)
+	cfg.CompatibilityPolicies = compatpolicy.RemoveByID(cfg.CompatibilityPolicies, policyID)
+	cfg.CompatibilityPolicies = append(cfg.CompatibilityPolicies, config.CompatibilityPolicyConfig{
+		ID: policyID,
+		Match: config.CompatibilityMatchConfig{
+			ProviderIDs:    []string{in.providerID},
+			UpstreamModels: []string{preset.UpstreamModel},
+		},
+		Reasoning: config.CompatibilityReasoningConfig{
+			AutoEnable: autoEnable,
+			Replay:     replay,
+		},
+	})
+	return cfg
+}
+
+func appendModelEntry(cfg config.Config, preset Preset, in applyInputs, discoveryAlias string) config.Config {
 	cfg.Models = append(cfg.Models, config.ModelConfig{
-		ID: modelID, ProviderID: providerID, UpstreamModel: preset.UpstreamModel,
-		ExposedAlias: modelAlias, ClaudeDiscoveryAlias: discoveryAlias,
-		DisplayName: providerName + " " + preset.UpstreamModel,
+		ID: in.modelID, ProviderID: in.providerID, UpstreamModel: preset.UpstreamModel,
+		ExposedAlias: in.modelAlias, ClaudeDiscoveryAlias: discoveryAlias,
+		DisplayName: in.providerName + " " + preset.UpstreamModel,
 		Capabilities: preset.Capabilities, Enabled: true,
 	})
-	cfg.Routes = upsertRoute(cfg.Routes, routeAlias, modelID, req.AppendToRoute)
+	return cfg
+}
+
+func upsertRouteAndProfile(cfg config.Config, req ApplyRequest, in applyInputs) config.Config {
+	cfg.Routes = upsertRoute(cfg.Routes, in.routeAlias, in.modelID, req.AppendToRoute)
 	if cfg.Profiles == nil {
 		cfg.Profiles = map[string]string{}
 	}
-	if strings.TrimSpace(req.ProfileName) != "" {
-		cfg.Profiles[strings.TrimSpace(req.ProfileName)] = routeAlias
+	if name := strings.TrimSpace(req.ProfileName); name != "" {
+		cfg.Profiles[name] = in.routeAlias
 	}
-	if err := cfg.Validate(); err != nil {
-		return config.Config{}, ApplySummary{}, err
-	}
-	return cfg, ApplySummary{
-		ProviderID: providerID, ModelID: modelID, RouteAlias: routeAlias, ProfileName: req.ProfileName,
-		AddedProvider: true, AddedModel: true, AppendedRouteTarget: req.AppendToRoute,
-	}, nil
+	return cfg
 }
+
+func summaryFromInputs(in applyInputs, preset Preset, req ApplyRequest) ApplySummary {
+	return ApplySummary{
+		ProviderID: in.providerID, ModelID: in.modelID, RouteAlias: preset.DefaultRoute, ProfileName: preset.ID,
+		AppendedRouteTarget: req.AppendToRoute,
+	}
+}
+
+func boolPtr(value bool) *bool { return &value }
 
 func findPreset(id string) (Preset, bool) {
 	for _, preset := range Presets() {
@@ -168,25 +214,24 @@ func removeExisting(cfg config.Config, providerID string, modelID string, confir
 	if !confirm {
 		return cfg
 	}
-	cfg.Providers = filterProviders(cfg.Providers, providerID)
-	cfg.Models = filterModels(cfg.Models, modelID)
+	cfg.Providers = filterBy(cfg.Providers, func(p config.ProviderConfig) bool { return p.ID != providerID })
+	cfg.Models = filterBy(cfg.Models, func(m config.ModelConfig) bool { return m.ID != modelID })
 	for i := range cfg.Routes {
-		cfg.Routes[i].Targets = filterTargets(cfg.Routes[i].Targets, modelID)
+		cfg.Routes[i].Targets = filterBy(cfg.Routes[i].Targets, func(t config.RouteTarget) bool { return t.ModelID != modelID })
 	}
-	cfg.CompatibilityPolicies = removePolicyByID(cfg.CompatibilityPolicies, compatpolicy.StableModelPolicyID(modelID))
+	cfg.CompatibilityPolicies = compatpolicy.RemoveByID(cfg.CompatibilityPolicies, compatpolicy.StableModelPolicyID(modelID))
 	return cfg
 }
 
-func removePolicyByID(policies []config.CompatibilityPolicyConfig, id string) []config.CompatibilityPolicyConfig {
-	out := policies[:0]
-	for _, p := range policies {
-		if p.ID != id {
-			out = append(out, p)
+func filterBy[T any](in []T, keep func(T) bool) []T {
+	out := make([]T, 0, len(in))
+	for _, item := range in {
+		if keep(item) {
+			out = append(out, item)
 		}
 	}
 	return out
 }
-
 
 func upsertRoute(routes []config.RouteConfig, alias string, modelID string, appendToRoute bool) []config.RouteConfig {
 	for i := range routes {
@@ -203,7 +248,7 @@ func upsertRoute(routes []config.RouteConfig, alias string, modelID string, appe
 		}
 	}
 	return append(routes, config.RouteConfig{
-		Alias: alias, ClaudeDiscoveryAlias: "claude-sonnet-4-20250514", Strategy: "fallback",
+		Alias: alias, ClaudeDiscoveryAlias: defaultDiscoveryAlias, Strategy: "fallback",
 		Targets: []config.RouteTarget{{ModelID: modelID, Enabled: true}}, Enabled: true,
 	})
 }
@@ -225,49 +270,5 @@ func firstNonEmpty(values ...string) string {
 }
 
 func normalizeID(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	var b strings.Builder
-	lastDash := false
-	for _, r := range value {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			lastDash = false
-			continue
-		}
-		if !lastDash && b.Len() > 0 {
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	return strings.Trim(b.String(), "-")
-}
-
-func filterProviders(in []config.ProviderConfig, providerID string) []config.ProviderConfig {
-	out := in[:0]
-	for _, item := range in {
-		if item.ID != providerID {
-			out = append(out, item)
-		}
-	}
-	return out
-}
-
-func filterModels(in []config.ModelConfig, modelID string) []config.ModelConfig {
-	out := in[:0]
-	for _, item := range in {
-		if item.ID != modelID {
-			out = append(out, item)
-		}
-	}
-	return out
-}
-
-func filterTargets(in []config.RouteTarget, modelID string) []config.RouteTarget {
-	out := in[:0]
-	for _, item := range in {
-		if item.ModelID != modelID {
-			out = append(out, item)
-		}
-	}
-	return out
+	return compatpolicy.Slug(value, "")
 }

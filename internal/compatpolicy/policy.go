@@ -2,10 +2,17 @@ package compatpolicy
 
 import (
 	"strings"
+
+	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
 func StableModelPolicyID(modelID string) string {
-	clean := strings.ToLower(strings.TrimSpace(modelID))
+	value := Slug(modelID, "model")
+	return "model-" + value + "-compat"
+}
+
+func Slug(value string, emptyFallback string) string {
+	clean := strings.ToLower(strings.TrimSpace(value))
 	var b strings.Builder
 	lastDash := false
 	for _, r := range clean {
@@ -14,14 +21,24 @@ func StableModelPolicyID(modelID string) string {
 			lastDash = false
 			continue
 		}
-		if !lastDash {
+		if !lastDash && b.Len() > 0 {
 			b.WriteByte('-')
 			lastDash = true
 		}
 	}
-	value := strings.Trim(b.String(), "-")
-	if value == "" {
-		value = "model"
+	out := strings.Trim(b.String(), "-")
+	if out == "" {
+		return emptyFallback
 	}
-	return "model-" + value + "-compat"
+	return out
+}
+
+func RemoveByID(policies []config.CompatibilityPolicyConfig, id string) []config.CompatibilityPolicyConfig {
+	out := make([]config.CompatibilityPolicyConfig, 0, len(policies))
+	for _, p := range policies {
+		if p.ID != id {
+			out = append(out, p)
+		}
+	}
+	return out
 }
