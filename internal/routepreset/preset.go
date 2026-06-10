@@ -158,7 +158,7 @@ func appendModelEntry(cfg config.Config, preset Preset, in applyInputs, discover
 	cfg.Models = append(cfg.Models, config.ModelConfig{
 		ID: in.modelID, ProviderID: in.providerID, UpstreamModel: preset.UpstreamModel,
 		ExposedAlias: in.modelAlias, ClaudeDiscoveryAlias: discoveryAlias,
-		DisplayName: in.providerName + " " + preset.UpstreamModel,
+		DisplayName:  in.providerName + " " + preset.UpstreamModel,
 		Capabilities: preset.Capabilities, Enabled: true,
 	})
 	return cfg
@@ -177,7 +177,7 @@ func upsertRouteAndProfile(cfg config.Config, req ApplyRequest, in applyInputs) 
 
 func summaryFromInputs(in applyInputs, preset Preset, req ApplyRequest) ApplySummary {
 	return ApplySummary{
-		ProviderID: in.providerID, ModelID: in.modelID, RouteAlias: preset.DefaultRoute, ProfileName: preset.ID,
+		ProviderID: in.providerID, ModelID: in.modelID, RouteAlias: in.routeAlias, ProfileName: req.ProfileName,
 		AppendedRouteTarget: req.AppendToRoute,
 	}
 }

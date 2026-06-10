@@ -20,8 +20,8 @@ func newCtx(t *testing.T) context.Context {
 
 func TestFetchOpenAICompatibleSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/models" {
-			t.Errorf("path = %q, want /models", r.URL.Path)
+		if r.URL.Path != "/v1/models" {
+			t.Errorf("path = %q, want /v1/models", r.URL.Path)
 		}
 		auth := r.Header.Get("Authorization")
 		if auth != "Bearer sk-test" {
@@ -166,14 +166,14 @@ func TestFetchInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestJoinURLStripsV1(t *testing.T) {
+func TestJoinURL(t *testing.T) {
 	tests := []struct {
 		base, want string
 	}{
-		{"https://api.openai.com/v1", "https://api.openai.com/models"},
-		{"https://api.openai.com/v1/", "https://api.openai.com/models"},
+		{"https://api.openai.com/v1", "https://api.openai.com/v1/models"},
+		{"https://api.openai.com/v1/", "https://api.openai.com/v1/models"},
 		{"https://api.openai.com", "https://api.openai.com/models"},
-		{"http://localhost:1234/v1/", "http://localhost:1234/models"},
+		{"http://localhost:1234/v1/", "http://localhost:1234/v1/models"},
 	}
 	for _, tc := range tests {
 		got, err := joinURL(tc.base, "models")

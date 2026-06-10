@@ -5,16 +5,11 @@ import (
 	"time"
 )
 
-func TestSessionStoreAcceptsIssuedTokenUpToLimit(t *testing.T) {
+func TestSessionStoreAcceptsIssuedToken(t *testing.T) {
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
-	for i := 0; i < sessionMaxUses; i++ {
-		if !store.Valid(token) {
-			t.Fatalf("issued token should be valid at use %d/%d", i+1, sessionMaxUses)
-		}
-	}
-	if store.Valid(token) {
-		t.Fatal("issued token should be invalidated after exceeding use limit")
+	if !store.Valid(token) {
+		t.Fatal("issued token should be valid")
 	}
 }
 

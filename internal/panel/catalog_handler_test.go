@@ -106,6 +106,35 @@ func TestFetchModelsHandlerMissingBaseURL(t *testing.T) {
 	}
 }
 
+func TestFetchModelsHandlerResolvesEnv(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer resolved-env-key" {
+			t.Errorf("Authorization = %q, want Bearer resolved-env-key", auth)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{"id": "gpt-4o", "owned_by": "openai"}},
+		})
+	}))
+	defer upstream.Close()
+
+	t.Setenv("TEST_CATALOG_HANDLER_ENV_KEY", "resolved-env-key")
+
+	store := NewSessionStore(time.Minute)
+	token := store.Issue()
+	handler := withSetupToken(store, handleFetchModels)
+	body := strings.NewReader(`{"preset_id":"openai","base_url":"` + upstream.URL + `/v1","api_key":"env:TEST_CATALOG_HANDLER_ENV_KEY"}`)
+	req := httptest.NewRequest(http.MethodPost, "/internal/setup/fetch-models", body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Arkroute-Setup-Token", token)
+	rr := httptest.NewRecorder()
+	handler(rr, req)
+	if rr.Code != http.StatusOK {
+		body, _ := io.ReadAll(rr.Body)
+		t.Fatalf("status = %d, want 200, body = %s", rr.Code, string(body))
+	}
+}
+
 func TestCatalogHandler(t *testing.T) {
 	store := NewSessionStore(time.Minute)
 	token := store.Issue()
@@ -118,7 +147,7 @@ func TestCatalogHandler(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rr.Code)
 	}
 	var resp struct {
-		SchemaVersion int                      `json:"schema_version"`
+		SchemaVersion int                       `json:"schema_version"`
 		Providers     map[string]map[string]any `json:"providers"`
 		IDs           []string                  `json:"ids"`
 	}

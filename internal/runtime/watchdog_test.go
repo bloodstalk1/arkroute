@@ -137,3 +137,28 @@ func TestIdleWatchdogConcurrentResetStop(t *testing.T) {
 		wrapped.Close()
 	}
 }
+
+func TestIdleWatchdogFiresBeforeFirstRead(t *testing.T) {
+	expired := make(chan struct{})
+	timeout := 50 * time.Millisecond
+
+	r, w := io.Pipe()
+	defer r.Close()
+	defer w.Close()
+
+	wrapped := withIdleWatchdog(r, timeout, func() {
+		select {
+		case <-expired:
+		default:
+			close(expired)
+		}
+	})
+	defer wrapped.Close()
+
+	select {
+	case <-expired:
+		// success
+	case <-time.After(timeout * 4):
+		t.Fatal("watchdog did not fire when no bytes were read")
+	}
+}

@@ -302,9 +302,8 @@ func newIdleWatchdog(timeout time.Duration, onExpire func()) *idleWatchdog {
 }
 
 func (w *idleWatchdog) run() {
-	timer := time.NewTimer(time.Hour)
-	timer.Stop()
-	var armed bool
+	timer := time.NewTimer(w.timeout)
+	armed := true
 	for {
 		select {
 		case <-w.stop:

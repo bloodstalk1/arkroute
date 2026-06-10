@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/bloodstalk1/arkroute/internal/provider/catalog"
 	"github.com/bloodstalk1/arkroute/internal/provider/modelfetcher"
@@ -17,11 +19,11 @@ type fetchModelsRequest struct {
 }
 
 type fetchModelsResponse struct {
-	SchemaVersion int                       `json:"schema_version"`
-	Catalog       *catalog.Provider         `json:"catalog,omitempty"`
-	Fetched       *modelfetcher.Fetched     `json:"fetched,omitempty"`
-	AuthError     bool                      `json:"auth_error,omitempty"`
-	Error         string                    `json:"error,omitempty"`
+	SchemaVersion int                   `json:"schema_version"`
+	Catalog       *catalog.Provider     `json:"catalog,omitempty"`
+	Fetched       *modelfetcher.Fetched `json:"fetched,omitempty"`
+	AuthError     bool                  `json:"auth_error,omitempty"`
+	Error         string                `json:"error,omitempty"`
 }
 
 func handleFetchModels(w http.ResponseWriter, r *http.Request) {
@@ -49,10 +51,14 @@ func handleFetchModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	apiKey := input.APIKey
+	if strings.HasPrefix(apiKey, "env:") {
+		apiKey = os.Getenv(strings.TrimPrefix(apiKey, "env:"))
+	}
 	fetched, err := modelfetcher.Fetch(ctx, modelfetcher.Request{
 		Provider: input.PresetID,
 		BaseURL:  input.BaseURL,
-		APIKey:   input.APIKey,
+		APIKey:   apiKey,
 		Protocol: input.Protocol,
 	})
 	if err != nil {

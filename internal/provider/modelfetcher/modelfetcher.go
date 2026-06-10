@@ -171,9 +171,9 @@ func fetchAnthropic(ctx context.Context, req Request) (*Fetched, error) {
 	base := strings.TrimRight(req.BaseURL, "/")
 	endpoint := base + "/v1/models"
 	headers := map[string]string{
-		"Accept":     "application/json",
+		"Accept":            "application/json",
 		"anthropic-version": "2023-06-01",
-		"x-api-key":  req.APIKey,
+		"x-api-key":         req.APIKey,
 	}
 	body, status, err := doRequest(ctx, http.MethodGet, endpoint, headers)
 	if err != nil {
@@ -219,8 +219,8 @@ func fetchGemini(ctx context.Context, req Request) (*Fetched, error) {
 	base := strings.TrimRight(req.BaseURL, "/")
 	endpoint := base + "/models?pageSize=200"
 	headers := map[string]string{
-		"Accept":           "application/json",
-		"x-goog-api-key":   req.APIKey,
+		"Accept":         "application/json",
+		"x-goog-api-key": req.APIKey,
 	}
 	body, status, err := doRequest(ctx, http.MethodGet, endpoint, headers)
 	if err != nil {
@@ -267,12 +267,7 @@ func joinURL(base, suffix string) (string, error) {
 	if u.Scheme == "" || u.Host == "" {
 		return "", fmt.Errorf("base_url must be absolute")
 	}
-	// Strip a trailing /v1 (or /v1/) so the result is "{base}/models" not
-	// "{base}/v1/models" twice.
 	trimmed := strings.TrimRight(u.Path, "/")
-	if strings.HasSuffix(trimmed, "/v1") {
-		trimmed = strings.TrimSuffix(trimmed, "/v1")
-	}
 	u.Path = trimmed + "/" + strings.TrimLeft(suffix, "/")
 	return u.String(), nil
 }
