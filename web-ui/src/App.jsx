@@ -79,58 +79,6 @@ function logMessage(item) {
   }
 }
 
-function PageHeader({ icon, eyebrow, title, description, stats = [], action = null }) {
-  return (
-    <header className="page-header">
-      <div className="title-stack">
-        <span className="eyebrow"><i className={`ph-fill ${icon}`}></i>// {eyebrow.toUpperCase()}</span>
-        <h1>{title.toUpperCase()}</h1>
-        <p className="muted">{description}</p>
-      </div>
-      <div className="header-actions">
-        {stats.length > 0 && (
-          <div className="header-metrics">
-            {stats.map((stat) => (
-              <div className="metric" key={stat.label}>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-              </div>
-            ))}
-          </div>
-        )}
-        {action}
-      </div>
-    </header>
-  );
-}
-
-function StatusBadge({ tone = "ok", children }) {
-  return (
-    <span className={`status-indicator ${tone}`}>
-      [{String(children).toUpperCase()}]
-    </span>
-  );
-}
-
-function DataRow({ label, children }) {
-  return (
-    <div className="data-row">
-      <span>{label}</span>
-      <strong>{children}</strong>
-    </div>
-  );
-}
-
-function EmptyState({ icon, title, children }) {
-  return (
-    <div className="empty-state">
-      <i className={`ph-light ${icon}`}></i>
-      <strong>{title}</strong>
-      <p>{children}</p>
-    </div>
-  );
-}
-
 function ProviderCard({ provider, onEdit, onInspect }) {
   return (
     <article className="operator-card provider-dashboard-card">
