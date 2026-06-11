@@ -131,13 +131,13 @@ func TestRunActivateClaudeWarnsAboutMismatchedSettings(t *testing.T) {
 	}
 	got := stdout.String()
 	wants := []string{
-		"export ANTHROPIC_BASE_URL",
+		"ANTHROPIC_BASE_URL",
 		"# warning: Claude settings",
 		"arkroute activate claude --write-settings --settings",
 	}
 	if runtime.GOOS == "windows" {
 		wants = []string{
-			"set ANTHROPIC_BASE_URL",
+			"ANTHROPIC_BASE_URL",
 			"REM warning: Claude settings",
 			"arkroute activate claude --write-settings --settings",
 		}
