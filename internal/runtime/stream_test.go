@@ -7,11 +7,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bloodstalk1/arkroute/internal/adapter"
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/failure"
 	"github.com/bloodstalk1/arkroute/internal/observability"
 	"github.com/bloodstalk1/arkroute/internal/protocol"
 	"github.com/bloodstalk1/arkroute/internal/router"
 )
+
+// noStreamAdapter always returns (nil, false) from NewStreamMapper.
+type noStreamAdapter struct{}
+
+func (noStreamAdapter) BuildRequest(req protocol.Request, provider config.ProviderConfig, model config.ModelConfig) (adapter.UpstreamRequest, error) {
+	return adapter.UpstreamRequest{Method: "GET", URL: "http://never-called"}, nil
+}
+func (noStreamAdapter) MapResponse(body []byte) (protocol.Response, error) {
+	return protocol.Response{Role: protocol.RoleAssistant}, nil
+}
+func (noStreamAdapter) NewStreamMapper() (adapter.StreamMapper, bool) { return nil, false }
+func (noStreamAdapter) ClassifyError(int, []byte) failure.ErrorClass   { return failure.ErrorUpstreamFatal }
 
 func TestExecutorStreamSuccess(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -69,10 +83,21 @@ func TestExecutorStreamFallbackBeforeEvents(t *testing.T) {
 
 func TestExecutorStreamUnsupportedCapabilityDoesNotCallUpstream(t *testing.T) {
 	cfg := config.MinimalValidConfig("local-key")
-	cfg.Providers[0].Type = "gemini"
-	cfg.Providers[0].BaseURL = "https://example.test"
-	executor := executorFromConfig(t, cfg, observability.NewNoopSink())
-	_, err := executor.Stream(context.Background(), ExecuteRequest{RequestID: "req", Client: "claude", Model: "sonnet", Requirements: router.Requirements{Streaming: true}, Request: protocol.Request{Model: "sonnet", Stream: true}})
+	cfg.Providers[0].BaseURL = "https://never-called.example"
+	snapshot, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := adapter.MapRegistry{"openai_compatible": noStreamAdapter{}}
+	executor := NewExecutor(Deps{
+		Snapshot: snapshot,
+		Router:   router.New(snapshot, router.NewHealthStore()),
+		Adapters: reg,
+		Health:   router.NewHealthStore(),
+		Trace:    observability.NewNoopSink(),
+		Client:   &http.Client{Timeout: 2 * time.Second},
+	})
+	_, err = executor.Stream(context.Background(), ExecuteRequest{RequestID: "req", Client: "claude", Model: "sonnet", Requirements: router.Requirements{Streaming: true}, Request: protocol.Request{Model: "sonnet", Stream: true}})
 	if err == nil {
 		t.Fatal("Stream() error = nil, want unsupported capability")
 	}

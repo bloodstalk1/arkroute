@@ -133,7 +133,7 @@ func mapSystemInstruction(system []protocol.ContentBlock) map[string]any {
 }
 
 func (a Adapter) NewStreamMapper() (adapter.StreamMapper, bool) {
-	return nil, false
+	return NewStreamMapper(), true
 }
 
 func (a Adapter) ClassifyError(status int, body []byte) failure.ErrorClass {

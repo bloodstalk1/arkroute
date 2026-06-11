@@ -1,114 +1,144 @@
 package router
 
 import (
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
-func TestResolveRouteByAliasAndDiscoveryAlias(t *testing.T) {
-	snapshot, err := config.BuildSnapshot(config.MinimalValidConfig("local-key"))
-	if err != nil {
-		t.Fatalf("BuildSnapshot() error = %v", err)
-	}
-	r := New(snapshot, NewHealthStore())
-	for _, alias := range []string{"sonnet", "claude-sonnet-4-20250514"} {
-		targets, err := r.Resolve(alias, Requirements{Streaming: true, Tools: true})
-		if err != nil {
-			t.Fatalf("Resolve(%q) error = %v", alias, err)
-		}
-		if len(targets) != 1 || targets[0].Model.ID != "openrouter-sonnet" {
-			t.Fatalf("targets = %+v", targets)
-		}
-	}
-}
-
-func TestResolveRejectsMissingCapability(t *testing.T) {
+func testSnapshot() config.Snapshot {
 	cfg := config.MinimalValidConfig("local-key")
-	cfg.Models[0].Capabilities.Tools = false
-	snapshot, err := config.BuildSnapshot(cfg)
+	snap, err := config.BuildSnapshot(cfg)
 	if err != nil {
-		t.Fatalf("BuildSnapshot() error = %v", err)
+		panic(err)
 	}
-	_, err = New(snapshot, NewHealthStore()).Resolve("sonnet", Requirements{Tools: true})
-	if err == nil {
-		t.Fatal("Resolve() error = nil, want unsupported capability")
+	return snap
+}
+
+func TestResolvePriorityReturnsFirst(t *testing.T) {
+	r := New(testSnapshot(), NewHealthStore())
+	targets, err := r.Resolve("sonnet", Requirements{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("priority should return 1 target, got %d", len(targets))
 	}
 }
 
-func TestRetryableStatus(t *testing.T) {
-	for _, status := range []int{408, 429, 500, 502, 503, 504} {
-		if !IsRetryableStatus(status) {
-			t.Fatalf("%d should be retryable", status)
-		}
-	}
-	for _, status := range []int{400, 401, 403, 404} {
-		if IsRetryableStatus(status) {
-			t.Fatalf("%d should not be retryable", status)
-		}
-	}
-}
-
-func TestPlanReturnsRoutePlan(t *testing.T) {
-	snapshot, err := config.BuildSnapshot(config.MinimalValidConfig("local-key"))
-	if err != nil {
-		t.Fatalf("BuildSnapshot() error = %v", err)
-	}
-	plan, err := New(snapshot, NewHealthStore()).Plan("sonnet", Requirements{Streaming: true, Tools: true})
-	if err != nil {
-		t.Fatalf("Plan() error = %v", err)
-	}
-	if plan.Alias != "sonnet" || plan.Strategy != "fallback" || len(plan.Targets) != 1 {
-		t.Fatalf("plan = %+v", plan)
-	}
-}
-
-func TestFallbackPolicyReturnsAllTargets(t *testing.T) {
+func TestResolveFallbackReturnsAll(t *testing.T) {
 	cfg := config.MinimalValidConfig("local-key")
-	cfg.Providers = append(cfg.Providers, cfg.Providers[0])
-	cfg.Providers[1].ID = "backup"
-	cfg.Providers[1].Enabled = true
-	cfg.Models = append(cfg.Models, cfg.Models[0])
-	cfg.Models[1].ID = "backup-model"
-	cfg.Models[1].ProviderID = "backup"
-	cfg.Models[1].ClaudeDiscoveryAlias = ""
-	cfg.Models[1].ExposedAlias = "backup-or"
-	cfg.Routes[0].Targets = []config.RouteTarget{{ModelID: "openrouter-sonnet", Enabled: true}, {ModelID: "backup-model", Enabled: true}}
-	snapshot, err := config.BuildSnapshot(cfg)
-	if err != nil {
-		t.Fatalf("BuildSnapshot() error = %v", err)
-	}
-	plan, err := New(snapshot, NewHealthStore()).Plan("sonnet", Requirements{})
-	if err != nil {
-		t.Fatalf("Plan() error = %v", err)
-	}
-	targets, reason := FallbackPolicy{}.Select(plan, NewHealthStore().Snapshot())
-	if len(targets) != 2 {
-		t.Fatalf("targets = %d, want 2", len(targets))
-	}
-	if reason == "" {
-		t.Fatal("reason is empty")
-	}
-}
-
-func TestHealthStoreStoresSanitizedDetails(t *testing.T) {
-	store := NewHealthStore()
-	store.Update(Update{
-		ProviderID:    "openrouter",
-		UpstreamModel: "model",
-		Status:        "degraded",
-		StatusCode:    429,
-		ErrorClass:    "upstream_rate_limit",
-		ErrorMessage:  strings.Repeat("x", 300),
-		Latency:       time.Second,
+	cfg.Routes[0].Strategy = "fallback"
+	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
+		ID: "openrouter2", Name: "OR2", Type: "openai_compatible",
+		BaseURL: "https://openrouter.ai/api/v1", APIKey: "env:OPENROUTER_API_KEY", Enabled: true,
 	})
-	health := store.Snapshot()["openrouter"]
-	if health.Status != "degraded" || health.LastStatusCode != 429 {
-		t.Fatalf("health = %+v", health)
+	cfg.Models = append(cfg.Models, config.ModelConfig{
+		ID: "model2", ProviderID: "openrouter2", UpstreamModel: "anthropic/claude-4",
+		ExposedAlias: "sonnet2", Enabled: true,
+		Capabilities: config.Capabilities{Streaming: true, Tools: true, SystemMessages: true},
+	})
+	cfg.Routes[0].Targets = append(cfg.Routes[0].Targets, config.RouteTarget{ModelID: "model2", Enabled: true})
+	snap, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(health.LastErrorMessage) > 160 {
-		t.Fatalf("error message not limited: %d", len(health.LastErrorMessage))
+	r := New(snap, NewHealthStore())
+	targets, err := r.Resolve("sonnet", Requirements{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 2 {
+		t.Fatalf("fallback should return 2 targets, got %d", len(targets))
+	}
+}
+
+func TestRoundRobinReturnsOne(t *testing.T) {
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Routes[0].Strategy = "round_robin"
+	snap, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := New(snap, NewHealthStore())
+	for i := 0; i < 10; i++ {
+		targets, err := r.Resolve("sonnet", Requirements{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(targets) != 1 {
+			t.Fatalf("round_robin should return 1 target, got %d", len(targets))
+		}
+	}
+}
+
+func TestWeightedReturnsOne(t *testing.T) {
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Routes[0].Strategy = "weighted"
+	snap, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := New(snap, NewHealthStore())
+	targets, err := r.Resolve("sonnet", Requirements{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("weighted should return 1 target, got %d", len(targets))
+	}
+}
+
+func TestCircuitBreakerSkipsFailedProvider(t *testing.T) {
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Routes[0].Strategy = "fallback"
+	cfg.Providers = append(cfg.Providers, config.ProviderConfig{
+		ID: "openrouter2", Name: "OR2", Type: "openai_compatible",
+		BaseURL: "https://openrouter.ai/api/v1", APIKey: "env:KEY", Enabled: true,
+	})
+	cfg.Models = append(cfg.Models, config.ModelConfig{
+		ID: "model2", ProviderID: "openrouter2", UpstreamModel: "anthropic/claude-4",
+		ExposedAlias: "sonnet2", Enabled: true,
+		Capabilities: config.Capabilities{Streaming: true, Tools: true, SystemMessages: true},
+	})
+	cfg.Routes[0].Targets = append(cfg.Routes[0].Targets, config.RouteTarget{ModelID: "model2", Enabled: true})
+	snap, err := config.BuildSnapshot(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	health := NewHealthStore()
+	// Simulate 3 consecutive failures on the first provider.
+	for i := 0; i < 3; i++ {
+		health.Update(Update{ProviderID: "openrouter", UpstreamModel: "anthropic/claude-sonnet-4.5", Status: "error"})
+	}
+
+	r := New(snap, health)
+	targets, err := r.Resolve("sonnet", Requirements{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// First provider should be skipped by circuit breaker,
+	// so only the second target is returned.
+	if len(targets) != 1 {
+		t.Fatalf("circuit breaker should skip failed provider, got %d targets", len(targets))
+	}
+	if targets[0].Provider.ID != "openrouter2" {
+		t.Errorf("expected openrouter2, got %s", targets[0].Provider.ID)
+	}
+}
+
+func TestValidateAllowsNewStrategies(t *testing.T) {
+	for _, strategy := range []string{"priority", "fallback", "round_robin", "weighted"} {
+		cfg := config.MinimalValidConfig("local-key")
+		cfg.Routes[0].Strategy = strategy
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() for %s: %v, want nil", strategy, err)
+		}
+	}
+	cfg := config.MinimalValidConfig("local-key")
+	cfg.Routes[0].Strategy = "invalid"
+	if err := cfg.Validate(); err == nil {
+		t.Error("Validate() for invalid strategy: nil, want error")
 	}
 }

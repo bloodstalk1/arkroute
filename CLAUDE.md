@@ -79,7 +79,7 @@ Streaming follows the same path but uses SSE (Server-Sent Events) with `StreamMa
 
 ### Streaming support per adapter
 
-Only `openai_compatible` supports streaming. Both `gemini` and `anthropic` passthrough adapters return `nil, false` from `NewStreamMapper()`. A streaming request routed to these providers will fail with `ErrorUnsupportedCapability` before any upstream call is made. When adding new adapter types, implement `NewStreamMapper()` to enable streaming support.
+All adapters support streaming: `openai_compatible` maps OpenAI SSE deltas, `anthropic` forwards Anthropic native streaming events (message_start, content_block_start/delta/stop, message_delta/message_stop), and `gemini` diffs accumulated full-state Gemini SSE chunks into text deltas with usage metadata.
 
 ### Adapter security differences
 

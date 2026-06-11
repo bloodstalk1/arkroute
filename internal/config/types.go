@@ -111,4 +111,5 @@ type RouteConfig struct {
 type RouteTarget struct {
 	ModelID string `yaml:"model_id" json:"model_id"`
 	Enabled bool   `yaml:"enabled" json:"enabled"`
+	Weight  int    `yaml:"weight" json:"weight,omitempty"`
 }

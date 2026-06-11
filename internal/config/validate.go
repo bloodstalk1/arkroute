@@ -127,8 +127,8 @@ func (cfg Config) Validate() error {
 			fields[path+".alias"] = "must be unique; already used by " + owner
 		}
 		routeAliases[route.Alias] = path
-		if route.Strategy != "priority" && route.Strategy != "fallback" {
-			fields[path+".strategy"] = "must be priority or fallback"
+		if route.Strategy != "priority" && route.Strategy != "fallback" && route.Strategy != "round_robin" && route.Strategy != "weighted" {
+			fields[path+".strategy"] = "must be priority, fallback, round_robin, or weighted"
 		}
 		if len(route.Targets) == 0 {
 			fields[path+".targets"] = "must contain at least one target"
