@@ -150,6 +150,16 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "mcp":
+		configPath := flagValue(args[2:], "--config")
+		if configPath == "" {
+			configPath = app.DefaultConfigPath()
+		}
+		if err := app.RunMCP(configPath); err != nil {
+			fmt.Fprintf(stderr, "mcp failed: %v\n", err)
+			return 1
+		}
+		return 0
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printHelp(stderr)
@@ -177,6 +187,7 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  setup             Open local setup panel")
 	fmt.Fprintln(w, "  panel             Open local control panel")
 	fmt.Fprintln(w, "  uninstall         Remove Arkroute integration")
+	fmt.Fprintln(w, "  mcp               Start MCP server on STDIO (JSON-RPC 2.0)")
 	fmt.Fprintln(w, "  version           Print version")
 }
 
