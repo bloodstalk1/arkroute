@@ -16,6 +16,7 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/observability"
 	"github.com/bloodstalk1/arkroute/internal/router"
+	"github.com/bloodstalk1/arkroute/internal/security/ratelimit"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
 )
 
@@ -58,6 +59,7 @@ func Serve(path string) error {
 		ClaudeSettingsWriter: func(cfg config.Config) error {
 			return WriteClaudeSettings("", cfg)
 		},
+		RateLimiter: newRateLimiter(cfg),
 	})
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	srv := &http.Server{
@@ -126,4 +128,11 @@ func HasUsableProvider(cfg config.Config) bool {
 		}
 	}
 	return false
+}
+
+func newRateLimiter(cfg config.Config) *ratelimit.Store {
+	if cfg.Server.RateLimitRPM <= 0 {
+		return nil
+	}
+	return ratelimit.New(time.Minute, cfg.Server.RateLimitRPM, 5)
 }

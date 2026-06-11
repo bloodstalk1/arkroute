@@ -18,6 +18,7 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/protocol"
 	aproto "github.com/bloodstalk1/arkroute/internal/protocol/anthropic"
 	"github.com/bloodstalk1/arkroute/internal/router"
+	"github.com/bloodstalk1/arkroute/internal/security/ratelimit"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
 	"gopkg.in/yaml.v3"
 )
@@ -1158,5 +1159,34 @@ func TestModelsIncludesRouteAndExposedAliases(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Fatalf("body missing %s: %s", want, rec.Body.String())
 		}
+	}
+}
+
+func TestRateLimiterRejectsExcess(t *testing.T) {
+	cfg := config.MinimalValidConfig("local-key")
+	path := writeClaudeServerConfig(t, cfg)
+	state := testStateFromPath(t, path, cfg.Server.Host, cfg.Server.Port)
+	rl := ratelimit.New(time.Hour, 100, 3)
+	server := NewServer(Deps{State: state, RateLimiter: rl})
+
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+		req.Header.Set("Authorization", "Bearer local-key")
+		rec := httptest.NewRecorder()
+		server.Routes().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want 200", i+1, rec.Code)
+		}
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	req.Header.Set("Authorization", "Bearer local-key")
+	rec := httptest.NewRecorder()
+	server.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("4th request: status = %d, want 429", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "rate_limit_error") {
+		t.Errorf("body missing rate_limit_error: %s", body)
 	}
 }

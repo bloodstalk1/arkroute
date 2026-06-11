@@ -21,6 +21,7 @@ type ServerConfig struct {
 	Port                   int    `yaml:"port" json:"port"`
 	ClientKey              string `yaml:"client_key" json:"client_key"`
 	UpstreamTimeoutSeconds int    `yaml:"upstream_timeout_seconds" json:"upstream_timeout_seconds"`
+	RateLimitRPM           int    `yaml:"rate_limit_rpm" json:"rate_limit_rpm"` // 0 = disabled
 }
 
 type ClientsConfig struct {

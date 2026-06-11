@@ -11,6 +11,7 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/clitools"
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/panel"
+	"github.com/bloodstalk1/arkroute/internal/security/ratelimit"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
 )
 
@@ -18,16 +19,22 @@ type Deps struct {
 	State                *arkruntime.State
 	ConfigPath           string
 	ClaudeSettingsWriter func(cfg config.Config) error
+	RateLimiter          *ratelimit.Store
 }
 
 type Server struct {
-	deps       Deps
-	sessions   *panel.SessionStore
-	configPath string
+	deps        Deps
+	sessions    *panel.SessionStore
+	configPath  string
+	rateLimiter *ratelimit.Store
 }
 
 func NewServer(deps Deps) *Server {
-	return &Server{deps: deps, sessions: panel.NewSessionStore(15 * time.Minute), configPath: deps.ConfigPath}
+	srv := &Server{deps: deps, sessions: panel.NewSessionStore(15 * time.Minute), configPath: deps.ConfigPath}
+	if deps.RateLimiter != nil {
+		srv.rateLimiter = deps.RateLimiter
+	}
+	return srv
 }
 
 func (s *Server) Routes() http.Handler {

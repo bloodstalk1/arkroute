@@ -16,6 +16,16 @@ func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 		gen := s.deps.State.Current()
 		snapshot := gen.Snapshot()
 		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if s.rateLimiter != nil && !s.rateLimiter.Allow(token) {
+			writeJSON(w, http.StatusTooManyRequests, map[string]any{
+				"type": "error",
+				"error": map[string]string{
+					"type":    "rate_limit_error",
+					"message": "rate limit exceeded",
+				},
+			})
+			return
+		}
 		if subtle.ConstantTimeCompare([]byte(token), []byte(snapshot.Config.Server.ClientKey)) != 1 {
 			writeJSON(w, http.StatusUnauthorized, map[string]any{
 				"type": "error",
