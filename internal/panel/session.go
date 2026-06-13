@@ -3,6 +3,7 @@ package panel
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -19,7 +20,9 @@ func NewSessionStore(ttl time.Duration) *SessionStore {
 
 func (s *SessionStore) Issue() string {
 	var raw [32]byte
-	_, _ = rand.Read(raw[:])
+	if _, err := rand.Read(raw[:]); err != nil {
+		panic(fmt.Sprintf("session token: crypto/rand.Read failed: %v", err))
+	}
 	token := base64.RawURLEncoding.EncodeToString(raw[:])
 	s.mu.Lock()
 	defer s.mu.Unlock()

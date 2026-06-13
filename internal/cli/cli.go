@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -254,7 +255,7 @@ func runActivate(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if err := app.PrintClientActivation(stdout, cfg, profile); err != nil {
-		if strings.Contains(err.Error(), "unknown client profile") {
+		if errors.Is(err, app.ErrUnknownClientProfile) {
 			fmt.Fprintf(stderr, "activate failed: %v\n", err)
 			return 2
 		}

@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -38,6 +39,9 @@ func TestSetupNoBrowserCreatesBootstrapConfigAndPrintsURL(t *testing.T) {
 }
 
 func TestSetupUsesDefaultPort(t *testing.T) {
+	if !defaultSetupPortFree(t) {
+		t.Skip("default setup port 2002 is busy; cannot assert default behavior")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	var out bytes.Buffer
@@ -50,6 +54,9 @@ func TestSetupUsesDefaultPort(t *testing.T) {
 }
 
 func TestSetupPrintsBrandedTerminalOutput(t *testing.T) {
+	if !defaultSetupPortFree(t) {
+		t.Skip("default setup port 2002 is busy; cannot assert branded URL line")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	var out bytes.Buffer
@@ -69,6 +76,16 @@ func TestSetupPrintsBrandedTerminalOutput(t *testing.T) {
 			t.Fatalf("setup output missing %q: %q", want, got)
 		}
 	}
+}
+
+func defaultSetupPortFree(t *testing.T) bool {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:2002")
+	if err != nil {
+		return false
+	}
+	_ = ln.Close()
+	return true
 }
 
 func TestPanelNoBrowserRequiresExistingConfig(t *testing.T) {

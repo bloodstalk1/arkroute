@@ -127,15 +127,8 @@ func (m *StreamMapper) emit(currentText string, finishReason string) []protocol.
 	// Finish reason present: close the text block and the message.
 	if finishReason != "" {
 		stopReason := "end_turn"
-		switch finishReason {
-		case "stop":
-			stopReason = "end_turn"
-		case "max_tokens":
+		if finishReason == "max_tokens" {
 			stopReason = "max_tokens"
-		case "safety":
-			stopReason = "end_turn"
-		default:
-			stopReason = "end_turn"
 		}
 		events = append(events, protocol.StreamEvent{Type: "content_block_stop", Index: 0})
 		events = append(events, protocol.StreamEvent{Type: "message_delta", StopReason: stopReason})

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -16,13 +17,19 @@ const (
 	ClientProfileDroid   = "droid"
 )
 
+// ErrUnknownClientProfile is wrapped by [PrintClientActivation] when the
+// caller passes a profile that is not one of the known values. Callers can
+// detect it with errors.Is to distinguish unknown-profile errors from other
+// activation failures (for example, to pick a different exit code).
+var ErrUnknownClientProfile = errors.New("unknown client profile")
+
 func PrintClientActivation(w io.Writer, cfg config.Config, profile string) error {
 	profile = strings.ToLower(strings.TrimSpace(profile))
 	if profile == "" {
 		return fmt.Errorf("client profile is required")
 	}
 	if !isKnownClientProfile(profile) {
-		return fmt.Errorf("unknown client profile %q", profile)
+		return fmt.Errorf("activate: %w %q", ErrUnknownClientProfile, profile)
 	}
 	if err := validateActivationConfig(cfg); err != nil {
 		return err

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
@@ -214,6 +213,3 @@ func mustMarshal(v any) string {
 	_ = enc.Encode(v)
 	return buf.String()
 }
-
-// ensure sort is used
-var _ = sort.Ints
