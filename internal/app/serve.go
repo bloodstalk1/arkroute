@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -70,10 +71,12 @@ func Serve(path string) error {
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- srv.ListenAndServe()
 	}()
+	logger.Info("arkroute serving", "addr", addr, "config", path, "log", logPath, "generation", state.Current().Number())
 	message := serveReadyMessage(addr, path, logPath)
 	if guidance := ServeSetupGuidance(cfg); guidance != "" {
 		message += "\n" + guidance
@@ -99,16 +102,18 @@ func Serve(path string) error {
 		case <-reload:
 			result := state.Reload(context.Background(), arkruntime.ReloadSourceSignal, "signal_sighup")
 			if result.Success {
-				fmt.Printf("arkroute reloaded generation %d\n", result.Generation)
+				logger.Info("config reloaded", "source", "signal", "generation", result.Generation)
 			} else {
-				fmt.Fprintf(os.Stderr, "arkroute reload failed: %s\n", result.Error)
+				logger.Warn("config reload failed", "source", "signal", "error_class", result.ErrorClass, "error", result.Error)
 			}
-		case <-shutdown:
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		case sig := <-shutdown:
+			logger.Info("shutdown signal received; draining", "signal", sig.String())
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
 				return fmt.Errorf("server shutdown failed: %w", err)
 			}
+			logger.Info("shutdown complete")
 			return nil
 		}
 	}

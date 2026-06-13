@@ -26,7 +26,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/v1/models", s.withAuth(s.handleModels))
 	mux.HandleFunc("/v1/chat/completions", s.withAuth(s.handleChatCompletions))
 	mux.HandleFunc("/v1/responses", s.withAuth(s.handleResponses))
-	return mux
+	return httpserver.WithRequestID(mux)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -98,7 +98,7 @@ func (s *Server) Routes() http.Handler {
 			"setup_token":    s.sessions.Issue(),
 		})
 	}))
-	return mux
+	return httpserver.WithRequestID(mux)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
