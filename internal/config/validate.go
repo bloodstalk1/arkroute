@@ -10,6 +10,9 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/security"
 )
 
+// ValidationError is returned by [Config.Validate] when one or more
+// fields failed. Fields maps dotted YAML paths to human-readable
+// explanations; the runtime surfaces it directly to the admin UI.
 type ValidationError struct {
 	Fields map[string]string
 }
@@ -27,6 +30,10 @@ func (e ValidationError) Error() string {
 	return "config validation failed: " + strings.Join(parts, "; ")
 }
 
+// Validate returns nil if cfg is internally consistent (referential
+// integrity between providers/models/routes/profiles, allowed strategy
+// values, etc.) or a [ValidationError] enumerating the offending
+// fields otherwise.
 func (cfg Config) Validate() error {
 	fields := map[string]string{}
 	if cfg.Version != CurrentVersion {

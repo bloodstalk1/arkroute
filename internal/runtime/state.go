@@ -1,3 +1,8 @@
+// Package runtime owns the long-lived serving state of arkroute: the
+// currently active config generation, the router, the upstream
+// executor, and the reloading machinery triggered by SIGHUP or the
+// admin /internal/reload endpoint. A process holds exactly one
+// [*State]; all HTTP handlers receive it through their Deps.
 package runtime
 
 import (
@@ -19,6 +24,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ReloadSource identifies what triggered a [State.Reload] call. The
+// value is surfaced in trace events so operators can tell admin
+// reloads apart from SIGHUPs.
 type ReloadSource string
 
 const (
@@ -26,6 +34,10 @@ const (
 	ReloadSourceSignal ReloadSource = "signal"
 )
 
+// StateDeps wires a [State] to the rest of the process: the on-disk
+// config path, the shared adapter registry, the health store, the
+// trace sink, and an optional constructor for the upstream HTTP
+// client (tests use it to inject a short-timeout client).
 type StateDeps struct {
 	ConfigPath    string
 	ListenerHost  string
@@ -36,6 +48,8 @@ type StateDeps struct {
 	NewHTTPClient func(config.Config) *http.Client
 }
 
+// State is the long-lived runtime handle. It is safe for concurrent
+// use; all mutating operations (Reload) are serialised internally.
 type State struct {
 	mu            sync.RWMutex
 	reloadMu      sync.Mutex
@@ -50,6 +64,8 @@ type State struct {
 	meta          ReloadStatus
 }
 
+// Generation is one immutable snapshot of the routing/executing
+// pipeline. Reload swaps the active Generation atomically.
 type Generation struct {
 	number   uint64
 	loadedAt time.Time
@@ -58,6 +74,8 @@ type Generation struct {
 	executor *Executor
 }
 
+// ReloadStatus is the JSON-serialisable view of the runtime's reload
+// history. It is what the admin endpoint returns.
 type ReloadStatus struct {
 	ConfigPath             string    `json:"config_path"`
 	Generation             uint64    `json:"generation"`
@@ -71,6 +89,7 @@ type ReloadStatus struct {
 	FailedReloadCount      uint64    `json:"failed_reload_count"`
 }
 
+// ReloadResult is the per-call outcome of [State.Reload].
 type ReloadResult struct {
 	Success        bool
 	Status         string
@@ -124,38 +143,56 @@ func NewState(deps StateDeps) (*State, error) {
 	return state, nil
 }
 
+// Current returns the active [Generation]. The pointer is stable for
+// the lifetime of a generation; the snapshot it exposes is always a
+// deep clone, so callers may freely mutate it.
 func (s *State) Current() *Generation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.current
 }
 
+// Status returns the current [ReloadStatus]. Safe to call from any
+// goroutine; the returned value is a copy.
 func (s *State) Status() ReloadStatus {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.meta
 }
 
+// Health returns the shared [router.HealthStore] used by both the
+// router (to skip circuited upstreams) and the admin endpoints (to
+// display health).
 func (s *State) Health() *router.HealthStore {
 	return s.health
 }
 
+// Trace returns the [observability.TraceSink] the runtime writes
+// lifecycle events to. May be a no-op sink if none was configured.
 func (s *State) Trace() observability.TraceSink {
 	return s.trace
 }
 
+// Number is the monotonically increasing generation counter. The first
+// generation loaded by [NewState] is 1.
 func (g *Generation) Number() uint64 {
 	return g.number
 }
 
+// LoadedAt is the UTC time the generation's snapshot was first built.
 func (g *Generation) LoadedAt() time.Time {
 	return g.loadedAt
 }
 
+// Snapshot returns a deep clone of the generation's immutable
+// [config.Snapshot]. Mutating the returned value does not affect the
+// router or any other caller.
 func (g *Generation) Snapshot() config.Snapshot {
 	return cloneSnapshot(g.snapshot)
 }
 
+// Plan asks the router to resolve alias under req and packages the
+// result. The returned plan is a deep clone.
 func (g *Generation) Plan(alias string, req router.Requirements) (router.RoutePlan, error) {
 	plan, err := g.router.Plan(alias, req)
 	if err != nil {
@@ -164,14 +201,23 @@ func (g *Generation) Plan(alias string, req router.Requirements) (router.RoutePl
 	return cloneRoutePlan(plan), nil
 }
 
+// Execute runs a non-streaming chat completion. See [Executor.Execute]
+// for the contract.
 func (g *Generation) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, error) {
 	return g.executor.Execute(ctx, req)
 }
 
+// Stream runs a streaming chat completion. See [Executor.Stream] for
+// the contract.
 func (g *Generation) Stream(ctx context.Context, req ExecuteRequest) (StreamResult, error) {
 	return g.executor.Stream(ctx, req)
 }
 
+// Reload reads the config from disk, validates it, and atomically
+// swaps in a new [Generation]. Concurrent calls serialise on
+// reloadMu; the returned [ReloadResult] describes the outcome. Changes
+// to server.host or server.port are rejected (those require a process
+// restart).
 func (s *State) Reload(ctx context.Context, source ReloadSource, requestID string) ReloadResult {
 	if ctx == nil {
 		ctx = context.Background()

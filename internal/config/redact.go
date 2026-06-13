@@ -1,5 +1,9 @@
 package config
 
+// Redacted returns a copy of cfg with every secret field replaced by
+// "[redacted]". The admin panel returns it to the browser so the user
+// can see their config without leaking the client key or upstream
+// API keys.
 func Redacted(cfg Config) Config {
 	out := cfg
 	out.Server.ClientKey = "[redacted]"

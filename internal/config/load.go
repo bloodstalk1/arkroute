@@ -8,6 +8,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// LoadFile reads, validates, and migrates a YAML config from path. It
+// rejects files whose Unix permissions are wider than 0o600 to avoid
+// leaking the client key on shared systems.
 func LoadFile(path string) (Config, error) {
 	if runtime.GOOS != "windows" {
 		if info, err := os.Stat(path); err == nil {
@@ -25,6 +28,8 @@ func LoadFile(path string) (Config, error) {
 	return LoadBytes(data)
 }
 
+// LoadBytes parses YAML bytes and runs the same migration + defaults
+// pipeline as [LoadFile] without touching the filesystem.
 func LoadBytes(data []byte) (Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
@@ -38,6 +43,8 @@ func LoadBytes(data []byte) (Config, error) {
 	return cfg, nil
 }
 
+// ApplyDefaults fills in zero-valued fields on cfg with the documented
+// defaults (host 127.0.0.1, port 2002, 600s upstream timeout, ...).
 func ApplyDefaults(cfg *Config) {
 	if cfg.Version == 0 {
 		cfg.Version = CurrentVersion
@@ -56,6 +63,9 @@ func ApplyDefaults(cfg *Config) {
 	}
 }
 
+// MinimalValidConfig returns a Config that passes validation with
+// exactly one provider (OpenRouter) and one model wired to it. Tests
+// use it to avoid hand-assembling boilerplate.
 func MinimalValidConfig(clientKey string) Config {
 	return Config{
 		Version: CurrentVersion,
@@ -103,6 +113,9 @@ func MinimalValidConfig(clientKey string) Config {
 	}
 }
 
+// BootstrapLocalConfig returns the empty, just-installed state used by
+// the setup wizard: a valid server block with a freshly generated key
+// and no providers/models/routes.
 func BootstrapLocalConfig(clientKey string) Config {
 	return Config{
 		Version: CurrentVersion,

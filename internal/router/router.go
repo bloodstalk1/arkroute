@@ -1,3 +1,9 @@
+// Package router resolves model and route aliases to concrete upstream
+// targets. It is the only place in arkroute that knows how to map a
+// caller-supplied alias (e.g. "sonnet", a Claude-discovery alias, or a
+// model exposed_alias) onto a concrete provider/model pair, applying
+// capability filtering, health-based circuit breaking, and the route's
+// declared selection strategy (priority, fallback, round_robin, weighted).
 package router
 
 import (
@@ -9,28 +15,43 @@ import (
 	"github.com/bloodstalk1/arkroute/internal/config"
 )
 
+// Requirements describes the caller's capability needs; the router
+// filters out targets whose model does not advertise the requested
+// capabilities.
 type Requirements struct {
 	Streaming bool
 	Tools     bool
 	Vision    bool
 }
 
+// Target is a concrete (provider, model) pair selected from the
+// snapshot, plus the route configuration that surfaced it.
 type Target struct {
 	Model    config.ModelConfig
 	Provider config.ProviderConfig
 	Route    config.RouteConfig
 }
 
+// Router resolves aliases against an immutable config snapshot and a
+// shared health store. Construct one per config generation; it is safe
+// to call from multiple goroutines.
 type Router struct {
 	snapshot     config.Snapshot
 	health       *HealthStore
 	roundCounter atomic.Uint64
 }
 
+// New builds a Router bound to the given snapshot. The HealthStore may
+// be nil in tests that do not exercise circuit breaking.
 func New(snapshot config.Snapshot, health *HealthStore) *Router {
 	return &Router{snapshot: snapshot, health: health}
 }
 
+// Resolve returns the ordered list of targets that satisfy alias and
+// req, applying capability filtering and the route's strategy. For
+// priority routes the list contains at most one entry. An error is
+// returned when alias is unknown or no enabled target matches the
+// requirements.
 func (r *Router) Resolve(alias string, req Requirements) ([]Target, error) {
 	if route, ok := r.snapshot.RoutesByAlias[alias]; ok {
 		return r.resolveRoute(route, req)
@@ -148,6 +169,9 @@ func (r *Router) selectWeighted(route config.RouteConfig, targets []Target) []Ta
 	return []Target{targets[0]}
 }
 
+// RoutePlan is the resolved plan handed to a [Policy]: it carries the
+// chosen alias, the route's strategy, the caller's requirements, and
+// the candidate targets in the order the snapshot produced.
 type RoutePlan struct {
 	Alias        string
 	Strategy     string
@@ -155,6 +179,8 @@ type RoutePlan struct {
 	Targets      []Target
 }
 
+// Plan runs Resolve and packages the result together with the route's
+// strategy so the executor can hand it to a [Policy].
 func (r *Router) Plan(alias string, req Requirements) (RoutePlan, error) {
 	targets, err := r.Resolve(alias, req)
 	if err != nil {

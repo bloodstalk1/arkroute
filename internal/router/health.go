@@ -11,6 +11,8 @@ const (
 	circuitOpenDuration  = 2 * time.Minute
 )
 
+// Health is the public, JSON-serialisable view of an upstream's
+// current health. The router and the admin endpoints both consume it.
 type Health struct {
 	Status           string        `json:"status"`
 	UpstreamModel    string        `json:"upstream_model,omitempty"`
@@ -26,6 +28,8 @@ type circuitState struct {
 	openedAt            time.Time
 }
 
+// Update is the input to HealthStore.Update. Only ProviderID is
+// required; the rest are surfaced verbatim into [Health].
 type Update struct {
 	ProviderID    string
 	UpstreamModel string
@@ -36,12 +40,16 @@ type Update struct {
 	Latency       time.Duration
 }
 
+// HealthStore tracks per-upstream health and a per-(provider, model)
+// circuit breaker. All methods are safe for concurrent use.
 type HealthStore struct {
 	mu        sync.RWMutex
 	upstreams map[string]Health
 	circuits  map[string]*circuitState
 }
 
+// NewHealthStore returns an empty store ready for [HealthStore.Update]
+// calls.
 func NewHealthStore() *HealthStore {
 	return &HealthStore{
 		upstreams: map[string]Health{},
@@ -49,10 +57,16 @@ func NewHealthStore() *HealthStore {
 	}
 }
 
+// Set records a minimal status update for a provider. Equivalent to
+// Update with only ProviderID and Status set.
 func (s *HealthStore) Set(id string, status string) {
 	s.Update(Update{ProviderID: id, Status: status})
 }
 
+// Update records a fresh observation for a provider+model pair. The
+// provider's circuit-breaker counter is reset on status=="ok" and
+// incremented otherwise; once the threshold is reached the circuit
+// stays open for circuitOpenDuration.
 func (s *HealthStore) Update(update Update) {
 	if update.ProviderID == "" {
 		return
@@ -107,6 +121,8 @@ func (s *HealthStore) IsCircuited(providerID, upstreamModel string) bool {
 	return true
 }
 
+// Snapshot returns a copy of the per-provider health map. Callers can
+// mutate the returned map without affecting the store.
 func (s *HealthStore) Snapshot() map[string]Health {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
