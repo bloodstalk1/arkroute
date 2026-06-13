@@ -20,9 +20,8 @@ import (
 // Tool calls and multi-part responses are not yet handled; the mapper
 // currently emits a single text stream.
 type StreamMapper struct {
-	started   bool
-	prevText  string
-	textIndex int
+	started  bool
+	prevText string
 }
 
 func NewStreamMapper() *StreamMapper {

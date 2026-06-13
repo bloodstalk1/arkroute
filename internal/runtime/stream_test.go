@@ -46,7 +46,7 @@ func TestExecutorStreamSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stream() error = %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	seenStop := false
 	for event := range stream.Events {
 		if event.Type == "message_stop" {
@@ -75,7 +75,7 @@ func TestExecutorStreamFallbackBeforeEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stream() error = %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	if len(stream.Attempts) != 2 {
 		t.Fatalf("attempts = %d, want 2", len(stream.Attempts))
 	}

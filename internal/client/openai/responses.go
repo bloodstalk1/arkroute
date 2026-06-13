@@ -89,7 +89,7 @@ func (s *Server) handleResponses(w http.ResponseWriter, r *http.Request) {
 			writeExecutionError(w, err)
 			return
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		writeResponsesStream(w, stream, responsesReq.Model)
 		return
 	}

@@ -63,7 +63,7 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 			writeExecutionError(w, err)
 			return
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		s.writeStreamingResponse(w, stream, stream.Target.Model.ExposedAlias)
 		return
 	}

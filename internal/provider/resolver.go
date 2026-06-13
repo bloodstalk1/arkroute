@@ -204,11 +204,11 @@ func inferFromEndpoint(provider ProviderRef) string {
 	if err != nil {
 		return ""
 	}
-	path := strings.ToLower(strings.TrimRight(parsed.Path, "/"))
+	urlPath := strings.ToLower(strings.TrimRight(parsed.Path, "/"))
 	switch {
-	case strings.HasSuffix(path, "/v1/messages") || strings.HasSuffix(path, "/messages"):
+	case strings.HasSuffix(urlPath, "/v1/messages") || strings.HasSuffix(urlPath, "/messages"):
 		return TypeAnthropic
-	case strings.HasSuffix(path, "/v1/chat/completions") || strings.HasSuffix(path, "/chat/completions"):
+	case strings.HasSuffix(urlPath, "/v1/chat/completions") || strings.HasSuffix(urlPath, "/chat/completions"):
 		return TypeOpenAICompatible
 	default:
 		return ""

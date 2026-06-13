@@ -38,8 +38,18 @@ func TestCleanup(t *testing.T) {
 	s := New(time.Minute, 10, 2)
 	s.Allow("old-key")
 	s.Cleanup(time.Nanosecond)
+	// After Cleanup, the bucket is gone; the next Allow must allocate a
+	// fresh bucket and immediately allow (within burst). With burst=2
+	// this is the first call, so it should succeed.
+	if !s.Allow("old-key") {
+		t.Fatal("Allow after cleanup should succeed (fresh burst)")
+	}
+	// Second call is also within the new burst.
+	if !s.Allow("old-key") {
+		t.Fatal("second Allow after cleanup should succeed (within burst)")
+	}
+	// Third call exceeds the burst.
 	if s.Allow("old-key") {
-		// After cleanup and full refill (burst=2, limit=10/min, ~1us elapsed ≈ 0 refill)
-		// Wait, cleanup only deletes the bucket. The next Allow creates a new one with burst=2.
+		t.Fatal("third Allow after cleanup should be denied (burst exhausted)")
 	}
 }

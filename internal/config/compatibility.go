@@ -77,25 +77,6 @@ func builtinCompatibilityPolicies() []CompatibilityPolicyConfig {
 	}
 }
 
-func mergeCompatibilityReasoning(current ReasoningConfig, policy CompatibilityReasoningConfig) ReasoningConfig {
-	if current.AutoEnable == nil && policy.AutoEnable != nil {
-		value := *policy.AutoEnable
-		current.AutoEnable = &value
-	}
-	if current.AutoEffort == "" {
-		current.AutoEffort = policy.AutoEffort
-	}
-	if current.Replay == nil && policy.Replay != nil {
-		value := *policy.Replay
-		current.Replay = &value
-	}
-	if current.OmitToolChoice == nil && policy.OmitToolChoice != nil {
-		value := *policy.OmitToolChoice
-		current.OmitToolChoice = &value
-	}
-	return current
-}
-
 func compatibilityPolicyMatches(provider ProviderConfig, model ModelConfig, match CompatibilityMatchConfig) bool {
 	hasMatcher := len(match.ProviderIDs) > 0 ||
 		len(match.ProviderIDContains) > 0 ||

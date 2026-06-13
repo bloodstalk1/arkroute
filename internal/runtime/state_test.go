@@ -187,6 +187,10 @@ func TestStateReloadNilContextDoesNotPanic(t *testing.T) {
 	path := writeRuntimeStateConfig(t, config.MinimalValidConfig("local-key"))
 	state := newRuntimeStateForTest(t, path, "127.0.0.1", config.DefaultServerPort)
 
+	// Reload must accept a nil context; the production code substitutes
+	// context.Background() before using it. SA1012 is suppressed because
+	// the test specifically exercises the nil-context path.
+	//nolint:staticcheck // SA1012
 	result := state.Reload(nil, ReloadSourceAdmin, "req_reload")
 	if !result.Success {
 		t.Fatalf("reload failed: %+v", result)

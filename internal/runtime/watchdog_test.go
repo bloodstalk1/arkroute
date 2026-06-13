@@ -130,7 +130,7 @@ func TestIdleWatchdogConcurrentResetStop(t *testing.T) {
 		wrapped := withIdleWatchdog(r, 20*time.Millisecond, func() {})
 		go func() {
 			for j := 0; j < 20; j++ {
-				wrapped.Read(make([]byte, 1))
+				_, _ = wrapped.Read(make([]byte, 1))
 			}
 		}()
 		time.Sleep(5 * time.Millisecond)

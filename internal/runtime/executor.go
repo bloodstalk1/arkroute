@@ -321,7 +321,6 @@ func (w *idleWatchdog) run() {
 			timer.Reset(w.timeout)
 			armed = true
 		case <-timer.C:
-			armed = false
 			select {
 			case <-w.expired:
 			default:

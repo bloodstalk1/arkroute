@@ -98,33 +98,33 @@ func syntheticToolID(name string, input []byte) string {
 }
 
 func extractWholeTag(content string, tag string) (string, bool) {
-	open := "<" + tag + ">"
-	close := "</" + tag + ">"
+	openTag := "<" + tag + ">"
+	closeTag := "</" + tag + ">"
 	lower := strings.ToLower(content)
-	if !strings.HasPrefix(lower, open) {
+	if !strings.HasPrefix(lower, openTag) {
 		return "", false
 	}
-	end := strings.LastIndex(lower, close)
-	if end < len(open) {
+	end := strings.LastIndex(lower, closeTag)
+	if end < len(openTag) {
 		return "", false
 	}
-	after := strings.TrimSpace(content[end+len(close):])
+	after := strings.TrimSpace(content[end+len(closeTag):])
 	if after != "" {
 		return "", false
 	}
-	return content[len(open):end], true
+	return content[len(openTag):end], true
 }
 
 func extractFirstTag(content string, tag string) (string, bool) {
-	open := "<" + strings.ToLower(tag) + ">"
-	close := "</" + strings.ToLower(tag) + ">"
+	openTag := "<" + strings.ToLower(tag) + ">"
+	closeTag := "</" + strings.ToLower(tag) + ">"
 	lower := strings.ToLower(content)
-	start := strings.Index(lower, open)
+	start := strings.Index(lower, openTag)
 	if start < 0 {
 		return "", false
 	}
-	valueStart := start + len(open)
-	endRel := strings.Index(lower[valueStart:], close)
+	valueStart := start + len(openTag)
+	endRel := strings.Index(lower[valueStart:], closeTag)
 	if endRel < 0 {
 		return "", false
 	}

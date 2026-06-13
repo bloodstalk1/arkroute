@@ -195,14 +195,14 @@ func (r *Router) Plan(alias string, req Requirements) (RoutePlan, error) {
 	return RoutePlan{Alias: resolvedAlias, Strategy: strategy, Requirements: req, Targets: targets}, nil
 }
 
-func supports(cap config.Capabilities, req Requirements) bool {
-	if req.Streaming && !cap.Streaming {
+func supports(modelCaps config.Capabilities, req Requirements) bool {
+	if req.Streaming && !modelCaps.Streaming {
 		return false
 	}
-	if req.Tools && !cap.Tools {
+	if req.Tools && !modelCaps.Tools {
 		return false
 	}
-	if req.Vision && !cap.Vision {
+	if req.Vision && !modelCaps.Vision {
 		return false
 	}
 	return true

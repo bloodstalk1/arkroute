@@ -76,7 +76,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			writeExecutionError(w, err)
 			return
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		writeChatCompletionStream(w, stream, chatReq.Model)
 		return
 	}

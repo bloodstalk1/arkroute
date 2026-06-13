@@ -5,8 +5,9 @@ VERSION ?= 0.0.1
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -X github.com/bloodstalk1/arkroute/internal/buildinfo.Version=$(VERSION) -X github.com/bloodstalk1/arkroute/internal/buildinfo.Commit=$(COMMIT) -X github.com/bloodstalk1/arkroute/internal/buildinfo.BuildDate=$(BUILD_DATE)
+COVERFILE := coverage.out
 
-.PHONY: test build install clean build-npm build-frontend
+.PHONY: test test-race test-cover build install clean build-npm build-frontend lint lint-fix fmt vet tidy ci
 
 build-frontend:
 	cd web-ui && npm run build
@@ -16,6 +17,13 @@ build-frontend:
 
 test:
 	go test -count=1 ./...
+
+test-race:
+	go test -count=1 -race ./...
+
+test-cover:
+	go test -count=1 -coverprofile=$(COVERFILE) -covermode=atomic ./...
+	go tool cover -func=$(COVERFILE) | tail -1
 
 build:
 	mkdir -p dist
@@ -29,6 +37,24 @@ install: build
 clean:
 	rm -rf dist
 	rm -rf web-ui/dist
+	rm -f $(COVERFILE)
+
+fmt:
+	gofmt -l -w .
+
+vet:
+	go vet ./...
+
+tidy:
+	go mod tidy
+
+lint:
+	golangci-lint run ./...
+
+lint-fix:
+	golangci-lint run --fix ./...
+
+ci: vet test-race lint test-cover
 
 
 build-npm: build-frontend
