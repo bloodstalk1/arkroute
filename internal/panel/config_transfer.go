@@ -22,9 +22,7 @@ type configImportSummary struct {
 
 func handleConfigExport(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", http.MethodGet)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodGet) {
 			return
 		}
 		redacted := r.URL.Query().Get("redacted") == "1" || r.URL.Query().Get("redacted") == "true"
@@ -46,9 +44,7 @@ func handleConfigExport(path string) http.HandlerFunc {
 
 func handleConfigImportValidate(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", http.MethodPost)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodPost) {
 			return
 		}
 		cfg, err := decodeImportConfig(r, NewConfigStore(path))
@@ -67,9 +63,7 @@ func handleConfigImportValidate(path string) http.HandlerFunc {
 
 func handleConfigImportApply(path string, onSave func() error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", http.MethodPost)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodPost) {
 			return
 		}
 		store := NewConfigStore(path)

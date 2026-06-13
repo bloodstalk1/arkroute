@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/bloodstalk1/arkroute/internal/adapter"
 	"github.com/bloodstalk1/arkroute/internal/protocol"
 )
 
@@ -121,24 +122,5 @@ func mapStreamDelta(index int, delta streamDelta) []protocol.StreamEvent {
 }
 
 func formatAnthropicStreamError(raw json.RawMessage) string {
-	if len(raw) == 0 || string(raw) == "null" {
-		return "upstream stream error"
-	}
-	var message string
-	if json.Unmarshal(raw, &message) == nil && message != "" {
-		return message
-	}
-	var decoded struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-	}
-	if json.Unmarshal(raw, &decoded) == nil {
-		if decoded.Message != "" {
-			return decoded.Message
-		}
-		if decoded.Type != "" {
-			return decoded.Type
-		}
-	}
-	return string(raw)
+	return adapter.FormatStreamError(raw)
 }

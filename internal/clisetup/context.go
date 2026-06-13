@@ -8,6 +8,7 @@ import (
 
 	"github.com/bloodstalk1/arkroute/internal/config"
 	"github.com/bloodstalk1/arkroute/internal/security"
+	"github.com/bloodstalk1/arkroute/internal/strutil"
 )
 
 var (
@@ -50,7 +51,7 @@ func BuildContext(cfg config.Config, req Request) (Context, error) {
 	if err != nil {
 		return Context{}, err
 	}
-	baseURL := localGatewayBaseURL(cfg)
+	baseURL := config.LocalGatewayBaseURL(cfg)
 	openAIBaseURL := strings.TrimRight(baseURL, "/") + "/v1"
 	return Context{
 		SchemaVersion: 1,
@@ -140,23 +141,10 @@ func droidProfile(baseURL string, alias string) Profile {
 	}
 }
 
-func localGatewayBaseURL(cfg config.Config) string {
-	host := strings.TrimSpace(cfg.Server.Host)
-	if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
-		host = "[" + host + "]"
-	}
-	return fmt.Sprintf("http://%s:%d", host, cfg.Server.Port)
-}
-
 func shellQuote(value string) string {
 	return security.ShellQuote(value)
 }
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
+	return strutil.FirstNonEmpty(values...)
 }

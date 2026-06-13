@@ -2,7 +2,6 @@ package claude
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,9 +9,10 @@ import (
 	openaiclient "github.com/bloodstalk1/arkroute/internal/client/openai"
 	"github.com/bloodstalk1/arkroute/internal/clitools"
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/httpserver"
 	"github.com/bloodstalk1/arkroute/internal/panel"
-	"github.com/bloodstalk1/arkroute/internal/security/ratelimit"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
+	"github.com/bloodstalk1/arkroute/internal/security/ratelimit"
 )
 
 type Deps struct {
@@ -43,7 +43,10 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/v1/models", s.withAuth(s.handleModels))
 	mux.HandleFunc("/v1/messages", s.withAuth(s.handleMessages))
 	mux.HandleFunc("/v1/messages/count_tokens", s.withAuth(s.handleCountTokens))
-	openAIHandler := openaiclient.NewServer(openaiclient.Deps{State: s.deps.State}).Routes()
+	openAIHandler := openaiclient.NewServer(openaiclient.Deps{
+		State:       s.deps.State,
+		RateLimiter: s.rateLimiter,
+	}).Routes()
 	mux.Handle("/v1/chat/completions", openAIHandler)
 	mux.Handle("/v1/responses", openAIHandler)
 	mux.HandleFunc("/internal/status", s.withAuth(s.handleInternalStatus))
@@ -99,7 +102,5 @@ func (s *Server) Routes() http.Handler {
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+	httpserver.WriteJSON(w, status, value)
 }

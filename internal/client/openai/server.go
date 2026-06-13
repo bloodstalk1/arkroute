@@ -1,14 +1,16 @@
 package openai
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/bloodstalk1/arkroute/internal/httpserver"
 	arkruntime "github.com/bloodstalk1/arkroute/internal/runtime"
+	"github.com/bloodstalk1/arkroute/internal/security/ratelimit"
 )
 
 type Deps struct {
-	State *arkruntime.State
+	State       *arkruntime.State
+	RateLimiter *ratelimit.Store
 }
 
 type Server struct {
@@ -28,7 +30,5 @@ func (s *Server) Routes() http.Handler {
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+	httpserver.WriteJSON(w, status, value)
 }

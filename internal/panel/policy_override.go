@@ -18,8 +18,7 @@ func handlePolicyOverride(path string, onSave func() error) http.HandlerFunc {
 		case http.MethodDelete:
 			deletePolicyOverride(w, r, path, onSave)
 		default:
-			w.Header().Set("Allow", http.MethodPut+", "+http.MethodDelete)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+			writeMethodNotAllowed(w, http.MethodPut+", "+http.MethodDelete)
 		}
 	}
 }

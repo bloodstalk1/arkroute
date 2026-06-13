@@ -11,9 +11,7 @@ import (
 
 func handleRoutePresets() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", http.MethodGet)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodGet) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"schema_version": 1, "presets": routepreset.Presets()})
@@ -22,9 +20,7 @@ func handleRoutePresets() http.HandlerFunc {
 
 func handleRoutePresetApply(path string, onSave func() error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", http.MethodPost)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodPost) {
 			return
 		}
 		var input routepreset.ApplyRequest

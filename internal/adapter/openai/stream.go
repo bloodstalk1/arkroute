@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bloodstalk1/arkroute/internal/adapter"
 	"github.com/bloodstalk1/arkroute/internal/protocol"
 	oaiproto "github.com/bloodstalk1/arkroute/internal/protocol/openai"
 )
@@ -103,27 +104,7 @@ func (m *StreamMapper) MapLine(line []byte) ([]protocol.StreamEvent, error) {
 }
 
 func formatOpenAIStreamError(raw json.RawMessage) string {
-	var message string
-	if json.Unmarshal(raw, &message) == nil && message != "" {
-		return message
-	}
-	var decoded struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-		Code    string `json:"code"`
-	}
-	if json.Unmarshal(raw, &decoded) == nil {
-		if decoded.Message != "" {
-			return decoded.Message
-		}
-		if decoded.Type != "" {
-			return decoded.Type
-		}
-		if decoded.Code != "" {
-			return decoded.Code
-		}
-	}
-	return string(raw)
+	return adapter.FormatStreamError(raw)
 }
 
 func (m *StreamMapper) ensureStarted(events *[]protocol.StreamEvent) {

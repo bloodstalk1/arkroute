@@ -6,6 +6,7 @@ import (
 
 	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/strutil"
 )
 
 type ProviderSetup struct {
@@ -255,12 +256,7 @@ func findPreset(id string) (ProviderPreset, bool) {
 
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
+	return strutil.FirstNonEmpty(values...)
 }
 
 func normalizeID(value string) string {

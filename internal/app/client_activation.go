@@ -67,14 +67,6 @@ func validateActivationConfig(cfg config.Config) error {
 	return nil
 }
 
-func localGatewayBaseURL(cfg config.Config) string {
-	host := strings.TrimSpace(cfg.Server.Host)
-	if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
-		host = "[" + host + "]"
-	}
-	return fmt.Sprintf("http://%s:%d", host, cfg.Server.Port)
-}
-
 func localOpenAIBaseURL(cfg config.Config) string {
-	return localGatewayBaseURL(cfg) + "/v1"
+	return config.LocalGatewayBaseURL(cfg) + "/v1"
 }

@@ -10,9 +10,7 @@ import (
 
 func handlePolicyInspect(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", http.MethodGet)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodGet) {
 			return
 		}
 		modelID := strings.TrimSpace(r.URL.Query().Get("model_id"))

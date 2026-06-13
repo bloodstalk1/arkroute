@@ -7,6 +7,7 @@ import (
 
 	"github.com/bloodstalk1/arkroute/internal/compatpolicy"
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/strutil"
 )
 
 var ErrConflict = errors.New("preset target already exists")
@@ -266,12 +267,7 @@ func upsertRoute(routes []config.RouteConfig, alias string, modelID string, appe
 
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
+	return strutil.FirstNonEmpty(values...)
 }
 
 func normalizeID(value string) string {

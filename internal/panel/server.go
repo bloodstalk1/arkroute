@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bloodstalk1/arkroute/internal/config"
+	"github.com/bloodstalk1/arkroute/internal/httpserver"
 	"github.com/bloodstalk1/arkroute/internal/security"
 	setupcore "github.com/bloodstalk1/arkroute/internal/setup"
 )
@@ -83,9 +84,7 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 
 func handleLater(path string, onSave func() error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", http.MethodPost)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodPost) {
 			return
 		}
 		key, err := security.GenerateClientKey()
@@ -111,8 +110,7 @@ func handleProvider(path string, claudeWriter func(config.Config) error, onSave 
 		case http.MethodDelete:
 			handleProviderDelete(path, onSave)(w, r)
 		default:
-			w.Header().Set("Allow", "POST, DELETE")
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+			writeMethodNotAllowed(w, "POST, DELETE")
 		}
 	}
 }
@@ -201,9 +199,7 @@ func savePanelConfig(path string, cfg config.Config) error {
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+	httpserver.WriteJSON(w, status, value)
 }
 
 func defaultLogPath() string {

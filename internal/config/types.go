@@ -1,9 +1,25 @@
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	CurrentVersion    = 1
 	DefaultServerPort = 2002
 )
+
+// LocalGatewayBaseURL returns the loopback HTTP URL of the gateway
+// described by cfg (e.g. "http://127.0.0.1:2002" or "http://[::1]:2002").
+// IPv6 hosts are wrapped in brackets.
+func LocalGatewayBaseURL(cfg Config) string {
+	host := strings.TrimSpace(cfg.Server.Host)
+	if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
+		host = "[" + host + "]"
+	}
+	return fmt.Sprintf("http://%s:%d", host, cfg.Server.Port)
+}
 
 type Config struct {
 	Version               int                         `yaml:"version" json:"version"`

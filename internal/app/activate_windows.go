@@ -87,7 +87,7 @@ func printComment(w io.Writer, shell shellType, comment string) {
 
 func PrintClaudeActivation(w io.Writer, cfg config.Config) {
 	shell := detectShell()
-	baseURL := localGatewayBaseURL(cfg)
+	baseURL := config.LocalGatewayBaseURL(cfg)
 	printEnvVar(w, shell, "ANTHROPIC_BASE_URL", baseURL)
 	printEnvVar(w, shell, "ANTHROPIC_AUTH_TOKEN", cfg.Server.ClientKey)
 	printEnvVar(w, shell, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1")

@@ -28,9 +28,7 @@ type fetchModelsResponse struct {
 
 func handleFetchModels(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", http.MethodPost)
-			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"schema_version": 1, "error": "method not allowed"})
+		if rejectIfNotMethod(w, r, http.MethodPost) {
 			return
 		}
 		var input fetchModelsRequest
