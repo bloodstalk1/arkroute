@@ -17,6 +17,7 @@ func TestFirstNonEmptySkipsBlankAndTrims(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := FirstNonEmpty(tt.input...); got != tt.want {
 				t.Fatalf("FirstNonEmpty(%v) = %q, want %q", tt.input, got, tt.want)
 			}

@@ -8,6 +8,7 @@ import (
 )
 
 func TestWriteJSONSetsContentTypeAndStatus(t *testing.T) {
+	t.Parallel()
 	rr := httptest.NewRecorder()
 	WriteJSON(rr, http.StatusCreated, map[string]string{"hello": "world"})
 
@@ -27,6 +28,7 @@ func TestWriteJSONSetsContentTypeAndStatus(t *testing.T) {
 }
 
 func TestWriteErrorWritesEnvelope(t *testing.T) {
+	t.Parallel()
 	rr := httptest.NewRecorder()
 	WriteError(rr, http.StatusBadRequest, "bad input")
 
@@ -43,6 +45,7 @@ func TestWriteErrorWritesEnvelope(t *testing.T) {
 }
 
 func TestWriteJSONEncodesNestedValues(t *testing.T) {
+	t.Parallel()
 	rr := httptest.NewRecorder()
 	type payload struct {
 		Items []int `json:"items"`

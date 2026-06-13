@@ -51,7 +51,7 @@ func Setup(options SetupOptions, w io.Writer) error {
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	if !isLoopbackHost(host) {
+	if !security.IsLoopbackHost(host) {
 		return fmt.Errorf("host must be loopback")
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -178,10 +178,6 @@ func findAvailableSetupPort(host string, preferred int) (int, error) {
 		return port, nil
 	}
 	return 0, fmt.Errorf("no available loopback setup port starting at %d", preferred)
-}
-
-func isLoopbackHost(host string) bool {
-	return security.IsLoopbackHost(host)
 }
 
 func requestPanelSession(cfg config.Config) (string, error) {

@@ -3,6 +3,7 @@ package failure
 import "testing"
 
 func TestClassifyStatus(t *testing.T) {
+	t.Parallel()
 	tests := map[int]ErrorClass{
 		400: ErrorInvalidRequest,
 		401: ErrorUpstreamAuth,
@@ -22,6 +23,7 @@ func TestClassifyStatus(t *testing.T) {
 }
 
 func TestErrorClassRetryable(t *testing.T) {
+	t.Parallel()
 	for _, class := range []ErrorClass{ErrorUpstreamRateLimit, ErrorUpstreamRetryable, ErrorUpstreamTimeout} {
 		if !class.Retryable() {
 			t.Fatalf("%s should be retryable", class)
@@ -35,6 +37,7 @@ func TestErrorClassRetryable(t *testing.T) {
 }
 
 func TestControlPlaneErrorClassesAreNotRetryable(t *testing.T) {
+	t.Parallel()
 	tests := []ErrorClass{
 		ErrorConfigReloadFailed,
 		ErrorConfigValidationFailed,

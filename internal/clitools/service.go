@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -294,14 +295,10 @@ func validateConfig(cfg config.Config) error {
 	if cfg.Server.Port <= 0 || cfg.Server.Port > 65535 {
 		return fmt.Errorf("server.port must be between 1 and 65535")
 	}
-	if !isLoopbackHost(cfg.Server.Host) {
+	if !security.IsLoopbackHost(cfg.Server.Host) {
 		return fmt.Errorf("server.host must be loopback for CLI tool launch")
 	}
 	return nil
-}
-
-func isLoopbackHost(host string) bool {
-	return security.IsLoopbackHost(host)
 }
 
 func defaultConfigPath() string {
@@ -309,5 +306,5 @@ func defaultConfigPath() string {
 	if err != nil {
 		return ".arkroute/config.yaml"
 	}
-	return home + string(os.PathSeparator) + ".arkroute" + string(os.PathSeparator) + "config.yaml"
+	return filepath.Join(home, ".arkroute", "config.yaml")
 }

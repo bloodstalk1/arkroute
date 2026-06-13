@@ -8,6 +8,7 @@ import (
 )
 
 func TestRejectIfNotMethodAllowsMatch(t *testing.T) {
+	t.Parallel()
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/x", nil)
 	if rejectIfNotMethod(rr, req, http.MethodPost) {
@@ -19,6 +20,7 @@ func TestRejectIfNotMethodAllowsMatch(t *testing.T) {
 }
 
 func TestRejectIfNotMethodRejectsOther(t *testing.T) {
+	t.Parallel()
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/x", nil)
 	if !rejectIfNotMethod(rr, req, http.MethodPost) {
