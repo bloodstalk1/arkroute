@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -189,8 +190,13 @@ func TestSetupActivation(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	buf := &safeBuffer{}
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		// Run Setup command which blocks on ListenAndServe
 		_ = Setup(SetupOptions{
 			ConfigPath:     configPath,
@@ -198,6 +204,7 @@ func TestSetupActivation(t *testing.T) {
 			Host:           "127.0.0.1",
 			Port:           21500, // Starts scanning from 21500
 			ExitAfterPrint: false,
+			Context:        ctx,
 		}, buf)
 	}()
 
@@ -272,5 +279,14 @@ func TestSetupActivation(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"ANTHROPIC_BASE_URL": "http://127.0.0.1:2002"`) {
 		t.Fatalf("Claude settings missing expected Base URL: %s", string(data))
+	}
+
+	// Tear down the temporary panel server so the test does not leak a
+	// goroutine and listening socket.
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Setup goroutine did not exit after context cancel")
 	}
 }

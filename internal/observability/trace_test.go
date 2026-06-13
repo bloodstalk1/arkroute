@@ -3,6 +3,7 @@ package observability
 import (
 	"bytes"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -67,6 +68,7 @@ func TestNoopSinkCountsDropped(t *testing.T) {
 }
 
 func TestTraceReloadEventIncludesGenerationMetadata(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	var buf bytes.Buffer
 	sink := NewJSONLSink(&buf)
 	sink.Emit(TraceEvent{
@@ -76,7 +78,7 @@ func TestTraceReloadEventIncludesGenerationMetadata(t *testing.T) {
 		ConfigGeneration:         2,
 		PreviousConfigGeneration: 1,
 		NextConfigGeneration:     2,
-		ConfigPath:               "/Users/bat/.arkroute/config.yaml",
+		ConfigPath:               configPath,
 	})
 
 	var decoded map[string]any
@@ -95,7 +97,7 @@ func TestTraceReloadEventIncludesGenerationMetadata(t *testing.T) {
 	if decoded["next_config_generation"].(float64) != 2 {
 		t.Fatalf("next_config_generation = %v, want 2", decoded["next_config_generation"])
 	}
-	if decoded["config_path"] != "/Users/bat/.arkroute/config.yaml" {
-		t.Fatalf("config_path = %v, want /Users/bat/.arkroute/config.yaml", decoded["config_path"])
+	if decoded["config_path"] != configPath {
+		t.Fatalf("config_path = %v, want %s", decoded["config_path"], configPath)
 	}
 }

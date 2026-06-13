@@ -12,9 +12,11 @@ import (
 )
 
 func TestFileStorePath(t *testing.T) {
-	store := NewFileStore("/tmp/config.yaml")
-	if store.Path() != "/tmp/config.yaml" {
-		t.Fatalf("Path() = %q", store.Path())
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	store := NewFileStore(path)
+	if store.Path() != path {
+		t.Fatalf("Path() = %q, want %q", store.Path(), path)
 	}
 }
 

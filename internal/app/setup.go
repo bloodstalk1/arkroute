@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +26,9 @@ type SetupOptions struct {
 	Port           int
 	ExitAfterPrint bool
 	OpenBrowser    func(string) error
+	// Context, if non-nil, cancels the temporary panel server. The setup
+	// helper returns context.Canceled when the context is canceled.
+	Context context.Context
 }
 
 type PanelOptions struct {
@@ -32,9 +36,16 @@ type PanelOptions struct {
 	NoBrowser      bool
 	ExitAfterPrint bool
 	OpenBrowser    func(string) error
+	// Context, if non-nil, cancels the temporary panel server. The panel
+	// helper returns context.Canceled when the context is canceled.
+	Context context.Context
 }
 
 func Setup(options SetupOptions, w io.Writer) error {
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	path := pathOrDefault(options.ConfigPath)
 	host := options.Host
 	if host == "" {
@@ -81,10 +92,14 @@ func Setup(options SetupOptions, w io.Writer) error {
 	writer := func(cfg config.Config) error {
 		return WriteClaudeSettings("", cfg)
 	}
-	return runTemporaryPanelServer(path, host, actualPort, store, writer)
+	return runTemporaryPanelServer(ctx, path, host, actualPort, store, writer)
 }
 
 func Panel(options PanelOptions, w io.Writer) error {
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	path := pathOrDefault(options.ConfigPath)
 	cfg, err := config.LoadFile(path)
 	if err != nil {
@@ -119,7 +134,7 @@ func Panel(options PanelOptions, w io.Writer) error {
 		writer := func(c config.Config) error {
 			return WriteClaudeSettings("", c)
 		}
-		return runTemporaryPanelServer(path, cfg.Server.Host, actualPort, store, writer)
+		return runTemporaryPanelServer(ctx, path, cfg.Server.Host, actualPort, store, writer)
 	}
 	page := "panel"
 	if !HasUsableProvider(cfg) {
@@ -197,7 +212,7 @@ func requestPanelSession(cfg config.Config) (string, error) {
 	return payload.SetupToken, nil
 }
 
-func runTemporaryPanelServer(path string, host string, port int, store *panel.SessionStore, claudeWriter func(config.Config) error) error {
+func runTemporaryPanelServer(ctx context.Context, path string, host string, port int, store *panel.SessionStore, claudeWriter func(config.Config) error) error {
 	handler := panel.Routes(panel.Deps{
 		Sessions:             store,
 		ConfigPath:           path,
@@ -213,5 +228,17 @@ func runTemporaryPanelServer(path string, host string, port int, store *panel.Se
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
-	return srv.ListenAndServe()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
 }

@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const maxSessionTokens = 1024
+
 type SessionStore struct {
 	mu     sync.Mutex
 	ttl    time.Duration
@@ -26,6 +28,7 @@ func (s *SessionStore) Issue() string {
 	token := base64.RawURLEncoding.EncodeToString(raw[:])
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.makeRoomLocked()
 	s.tokens[token] = time.Now().Add(s.ttl)
 	return token
 }
@@ -45,4 +48,30 @@ func (s *SessionStore) Valid(token string) bool {
 		return false
 	}
 	return true
+}
+
+// makeRoomLocked ensures the store is below maxSessionTokens by first
+// purging expired entries and then evicting the entry that expires
+// soonest. Callers must hold s.mu.
+func (s *SessionStore) makeRoomLocked() {
+	now := time.Now()
+	for token, expires := range s.tokens {
+		if now.After(expires) {
+			delete(s.tokens, token)
+		}
+	}
+	if len(s.tokens) < maxSessionTokens {
+		return
+	}
+	var victim string
+	var victimExpiry time.Time
+	for token, expires := range s.tokens {
+		if victim == "" || expires.Before(victimExpiry) {
+			victim = token
+			victimExpiry = expires
+		}
+	}
+	if victim != "" {
+		delete(s.tokens, victim)
+	}
 }
